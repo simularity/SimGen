@@ -141,13 +141,20 @@ bt_operator(float) --> [until]. % wait until clock time arg and succeed
 bt_operator(null) --> [reset_clock]. % set the clock time to 0 and succeed
 bt_operator(null) --> [true]. % succeed immediately
 bt_operator(null) --> [fail]. % fail immediately
+% Need an action that tests the blackboard value on each tick, fails
+% when it's conditional test fails
+% Need an action that sets a blackboard
+% Should we have a blackboard, or just the messages?
+% Yes, have a blackboard
+% Have an 'end' action that reports the context ended (and terminates
+% all running nodes)
 
 		 /*******************************
 		 *  Decorations
 		 *******************************/
 decoration --> [true].  % run until argument terminates, then succeed
 decoration --> [fail].  % run until argument terminates, then fail
-decoration --> [while]. % repeatedly run argument until it fails
+decoration --> [while]. % repeatedly run argument until it fails, then succeed
 decoration --> [at], Time, [','], [run], {number(Time)}. % run 2nd arg at time specified by first arg
 decoration --> [stop, at], number(_Time).   % interrupt task at clock time t
 decoration --> [repeat, until], Time, [',']. % repeatedly run until clock time t or failure, then interrupt and succeed
@@ -157,6 +164,7 @@ decoration --> event_on_start. % insert event on start
 decoration --> event_on_success. % insert event on success
 decoration --> event_on_failure. % insert event on failure
 decoration --> set_context. % run the tasks below in new context. clock is inherited from caller.
+% need decoration to set a new blackboard
 
 		 /*******************************
 		 * smaller stuff
@@ -165,5 +173,40 @@ decoration --> set_context. % run the tasks below in new context. clock is inher
 arg_list -->
 	arg_list_,
 	".".
+
+
+/*
+ Notes from my scroungy piece of paper
+
+ the system 'ticks' all together. All contexts get ticks
+
+ There is a conversion factor for the system that converts
+ our units to nanos
+ There is a tick advance, in our units
+
+there is a blackboard. The blackboard space is per-context or global
+
+Nodes are not restartable -
+the second attempt to start fails.
+
+Args are interned at (node) start time.
+
+Args can be per-context overridden with some prolog predicate
+
+When you make syntax, have a way to make a 'lambda', an unnamed node,
+	to make coding easier. Lambdas shouldn't generate events.
+(they don't have a name)
+internally we give them a name
+
+Arguments and children are different.
+
+segment_add_triple should be hookable so we can use this in other
+contexts.
+
+% Clock, Context, and TickVal will be b_setval'ed
+%
+
+
+*/
 
 

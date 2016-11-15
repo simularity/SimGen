@@ -2,12 +2,17 @@
 	      def_node/4,   % node(+Head, +Oper, +Args, +Children)
 	      start_context/2, % start_context(+Root, +Context)
 	      end_context/2, % end_context(+Root, +Context)
-	      start_simulation/5, % start_simulation(+Root, +ContextType, +StartTime, +TimeUnit, +TickLength)
-	      do_tick/1,   % tick(+Root)
-	      check_nodes/0
+	      start_simulation/3, % start_simulation(+StartTime, +TimeUnit, +TickLength)
+	      do_tick/0,   % do_tick
+	      check_nodes/0 % check_nodes
 	 ]).
 
-:- dynamic node_/4.
+:-license(proprietary).
+
+:- dynamic node_/4,
+	current_time/1,
+	time_unit/1,
+	tick_length/1.
 
 %! def_node(+Head:atom, +Oper:atom, +Args:args, +Children:list) is det
 %
@@ -42,13 +47,33 @@ check_nodes :-
 
 check_def(Node) :- node_(Node, _, _, _).
 check_def(Node) :-
-	setof(Head, O^A^(node_(Head, O, A, Children), member(Node, Children)), Heads),
+	(   setof(Head, O^A^(node_(Head, O, A, Children), member(Node, Children)), Heads)
+	; Heads = []),
 	maplist(print_no_def(Node), Heads).
 
 print_no_def(Node, Head) :-
 	format(atom(Msg), 'Node ~w is used in node ~w but is not defined', [Node, Head]),
 	print_message(error, error(existance_error(procedure, Node),
 					      context(node:Head, Msg))).
+
+%!     start_simulation(
+%!              +StartTime:number, +TimeUnit:number, +TickLength:number)
+%
+%	Set up a simulation to run
+%
+%	Call to re/set simulation to initial state
+%
+%	@arg StartTime time in user units to run the first tick at
+%	@arg TimeUnit how long is one user unit in nanos?
+%	@arg TickLength how long is a tick in user units?
+%
+start_simulation(StartTime, TimeUnit, TickLength) :-
+	retractall(current_time(_)),
+	asserta(current_time(StartTime)),
+	retractall(time_unit(_)),
+	asserta(time_unit(TimeUnit)),
+	retractall(tick_length(_)),
+	asserta(tick_length(TickLength)).
 
 %! start_context(Root, Context)
 %	is det
