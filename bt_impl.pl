@@ -1,13 +1,18 @@
 :- module(bt_impl, [
 	      def_node/4,   % node(+Head, +Oper, +Args, +Children)
-	      start_context/2, % start_context(+Root, +Context)
-	      end_context/2, % end_context(+Root, +Context)
+	      start_context/3, % start_context(+Root, +Context, +Time)
+	      end_context/1, % end_context(+Context),
 	      start_simulation/3, % start_simulation(+StartTime, +TimeUnit, +TickLength)
 	      do_tick/0,   % do_tick
+	      do_n_ticks/1, % do_n_ticks
+	      time/1, % get the time of the global clock
+	      time/2, % get the time of the context clock
 	      check_nodes/0 % check_nodes
 	 ]).
 
 :-license(proprietary).
+
+:- use_module(library(pce)).
 
 :- dynamic node_/4,
 	current_time/1,
@@ -31,7 +36,7 @@ def_node(Head, _, _, _) :-
 	line_count(current_input, Line),
 	format(atom(Msg), '~w is multiply defined on line ~d.', [Head, Line]),
 	print_message(error, error(permission_error(modify, procedure, Head),
-				   context(node:Head, Msg))).
+				   context(Head, Msg))).
 def_node(Head, Oper, Args, Children) :-
 	\+ node_(Head, _, _, _),
 	asserta(node_(Head, Oper, Args, Children)).
@@ -75,10 +80,33 @@ start_simulation(StartTime, TimeUnit, TickLength) :-
 	retractall(tick_length(_)),
 	asserta(tick_length(TickLength)).
 
-%! start_context(Root, Context)
-%	is det
+:- dynamic current_context/2.
+
+%! start_context(+Root:atom, +Context:integer, +Time:number) is det
 %
-%	Start the node Root at the current clocktime
+%	Start the node Root in a new context Context
+%	with local clock Time
+%
+start_context(_Root, Context, Time) :-
+	current_context(Context, _),
+	format(atom(Msg), 'At ~w attempt to modify context ~w, which already exists', [Time, Context]),
+	throw(error(permission_error(modify, context, Context), context(Context, Msg))).
+start_context(Root, Context, Time) :-
+	\+ current_context(Context, _),
+	asserta(current_context(Context, _{
+					     running: [],
+					     time: Time
+					 })),
+	node_(Root, _, Args, _),
+	with_context(Context, start_node(Root, Args)).
+
+with_context(Context, Goal) :-
+	b_getval(current_context, OldContext),
+	b_setval(current_context, Context),
+	call(Goal),
+	b_setval(current_context, OldContext).
+
+
 
 :- discontiguous start_node/2, tick_node/6.
 
