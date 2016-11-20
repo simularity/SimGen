@@ -26,12 +26,12 @@ type_a !
  p = 100,
  t = 100;
  p := f_corr(p, 0, 200),
- t := wander(t, 0, 200),
+ t := wander(t, 0, 200, 3),
  speed = 500 - p - t.
 
 type_b !
  p = 100,
  t = 100;
- p = f_corr(p, 0, 200),
- t = wander(t, 0, 200),
+ p := f_corr(p, 0, 200),
+ t := wander(t, 0, 200, 3),
  speed = 500 + clock() - p - t.`).

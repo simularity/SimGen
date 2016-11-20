@@ -205,7 +205,7 @@ rval_args_rest([Arg]) --> rval(Arg).
 
 
 function( f_corr, 3).
-function( wander, 3).
+function( wander, 4).
 function( clock, 0).
 
 an_atom(Atom) -->
