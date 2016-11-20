@@ -2,12 +2,25 @@
 /** <module> Concrete syntax parser for behavior trees
 
 */
+:- multifile license:license/3.
+
+license:license(simularity, proprietary,
+                [ comment('this program is the confidential property of Simularity, Inc. and must not be disclosed to any person without written permission of Simularity, Inc. All rights reserved.'),
+                  url('http://thunor.simularity.com/dokuwiki/doku.php?id=components:license')
+                ]).
+
+:- license(simularity).
+
 :- use_module(library(dcg/basics)).
 
 d(Format, Args) --> {debug(bt, Format, Args)}, [].
 
 bt_dcg(true) --> eos.
-bt_dcg(define_bt(BT)) -->d('in bt_dcg', []), bt_(BT).
+bt_dcg(define_bt(Out)) -->
+	d('in bt_dcg', []),
+	bt_(BT),
+	{ append([':-'(set_current_bt_module) | BT],
+		 [ ':-'(check_nodes)], Out) }.
 
 bt_([]) --> eos.
 bt_([BTStatement | BT]) -->

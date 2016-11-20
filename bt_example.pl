@@ -60,21 +60,7 @@ wawei_contexts(N) :-
 	NN is N - 1,
 	start_context(wawei, N, 0),
 	random_between(0, 100, T),
-	do_n_ticks(T),
+%	do_n_ticks(T),
 	wawei_contexts(NN).
 
-/*
-{|bt||
-generator >>
-   start_generator,
-   run_generator.
-
-start_generator ==>
-   { timer 1.5 },
-   start_action.
-
-start_action !
-   Speed = 0,
-|}
-*/
 
