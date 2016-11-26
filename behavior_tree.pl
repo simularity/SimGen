@@ -3,24 +3,25 @@
 /** <module> Behavior Trees
  *
  */
+
 :- use_module(library(quasi_quotations)).
 :- use_module(behavior_tree_parser).
 
 :- quasi_quotation_syntax(behavior_tree:bt).
 
-:- module_transparent reset_module_nodes/0.
-
-reset_module_nodes :-
-	current_module(Module),
-	reset_nodes_for_module(Module).
-
-:- reset_module_nodes.
-
-% system:term_expansion(define_bt(X), X) :- write('term expands
-% to:'),writeln(X).
+system:term_expansion(define_bt(X), X) :- write('term expands to:'),writeln(X).
 
 bt(Content, _SyntaxArgs, _VariableNames, Result) :-
 	debug(bt, 'bt in ~w', [Content]),
     phrase_from_quasi_quotation(bt_dcg(Result), Content),
     debug(bt, 'bt out ~w', [Result]).
+
+user:message_hook(load_file(Data), _, _) :-
+	Data = start(_, file(_Path, FullPath)),
+	module_property(Module, file(FullPath)),
+	reset_nodes_for_module(Module),
+	debug(bt, 'reset ~w nodes', [Module]).
+
+% TODO enable when this works
+system:term_expansion(end_of_file, [:-(bt_impl:check_nodes), end_of_file]).
 

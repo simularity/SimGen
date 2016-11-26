@@ -51,16 +51,28 @@ type_b !
 :- writeln('after quasiquote').
 
 wawei(N) :-
-	start_simulation(0, 60_000_000_000, 60_000_000_000),
-	wawei_contexts(N).
+	start_simulation(0, 60_000_000_000, 60_000_000_000,
+	   _{
+		  next_context: N,
+		  add_context_on_tick: 0
+	   }).
 
-wawei_contexts(0).
-wawei_contexts(N) :-
-	N > 0,
-	NN is N - 1,
-	start_context(wawei, N, 0),
-	random_between(0, 100, T),
-%	do_n_ticks(T),
-	wawei_contexts(NN).
+:- listen(tick(Sim, Tick), consider_adding_context(Sim, Tick)).
 
+consider_adding_context(Sim, Tick) :-
+	Sim.external.add_context_on_tick > Tick,
+	!.
+consider_adding_context(Sim, _Tick) :-
+	Sim.external.next_context = 0,
+	!,
+	stop_simulation(Sim).
+consider_adding_context(Sim, Tick) :-
+	Sim.external.add_context_on_tick =< Tick,
+	NextContext = Sim.external.next_context,
+	succ(NN, NextContext),
+	nb_set_dict(next_context, Sim.external, NN),
+	random_between(1, 20, R),
+	NewTick is R + Tick,
+	nb_set_dict(next_context_on_tick, Sim.external, NewTick),
+	start_context(wawei, NextContext, 0, Sim).
 

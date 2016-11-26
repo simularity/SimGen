@@ -16,11 +16,9 @@ license:license(simularity, proprietary,
 d(Format, Args) --> {debug(bt, Format, Args)}, [].
 
 bt_dcg(true) --> eos.
-bt_dcg(define_bt(Out)) -->
+bt_dcg(define_bt([':-'(set_current_bt_module) | BT])) -->
 	d('in bt_dcg', []),
-	bt_(BT),
-	{ append([':-'(set_current_bt_module) | BT],
-		 [ ':-'(check_nodes)], Out) }.
+	bt_(BT).
 
 bt_([]) --> eos.
 bt_([BTStatement | BT]) -->

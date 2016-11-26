@@ -2,22 +2,17 @@
 	      reset_nodes_for_module/1,
 	      set_current_bt_module/0,
 	      def_node/4,   % node(+Head, +Oper, +Args, +Children)
-	      start_context/3, % start_context(+Root, +Context, +Time)
+	      start_context/4, % start_context(+Root, +Context, +Time, :Sim)
 %	      end_context/1, % end_context(+Context),
-	      start_simulation/3, % start_simulation(+StartTime, +TimeUnit, +TickLength)
-%	      do_tick/0,   % do_tick
-%	      do_n_ticks/1, % do_n_ticks
-	      time/1, % get the time of the global clock
-%	      time/2, % get the time of the context clock
+	      start_simulation/4, % start_simulation(+StartTime, +TimeUnit, +TickLength, +External)
+%	      bt_time/1, % get the time of the global clock
+%	      bt_context_time/2, % get the time of the context clock
 	      check_nodes/0 % check_nodes
 	 ]).
 
 :- use_module(library(pce)).
 
-:- dynamic node_/5,   % node_(Module, Head, Operator, Args, Children)
-	current_time/1,
-	time_unit/1,
-	tick_length/1.
+:- dynamic node_/5.   % node_(Module, Head, Operator, Args, Children)
 
 :- module_transparent set_current_bt_module/0.
 
@@ -53,8 +48,10 @@ def_node(Head, _, _, _) :-
 				   context(Head, Msg))).
 def_node(Head, Oper, Args, Children) :-
 	\+ node_(_, Head, _, _, _),
+	debug(bt, 'node ~w ~w ~w ~w~n', [Head, Oper, Args, Children]),
 	nb_getval(current_bt_module, Module),
-	assertz(node_(Module, Head, Oper, Args, Children)).
+	assertz(node_(Module, Head, Oper, Args, Children)),
+	debug(bt, 'asserted~n', []).
 
 %!	check_nodes is semidet
 %
@@ -62,8 +59,15 @@ def_node(Head, Oper, Args, Children) :-
 %	emits messages if not.
 %
 check_nodes :-
-	setof(Node, M^H^O^A^(node_(M, H, O, A, Children), member(Node, Children)), Used),
+	\+ node_(_, _, _, _, _),
+	!.
+check_nodes :-
+	setof(Node, a_used_node(Node), Used),
 	maplist(check_def, Used).
+
+a_used_node(Node) :-
+	node_(_, _, _, _, Children),
+	member(Node, Children).
 
 check_def(Node) :- node_(_, Node, _, _, _).
 check_def(Node) :-
@@ -77,43 +81,56 @@ print_no_def(Node, Head) :-
 					      context(node:Head, Msg))).
 
 %!     start_simulation(
-%!              +StartTime:number, +TimeUnit:number, +TickLength:number)
+%! +StartTime:number, +TimeUnit:number, +TickLength:number,
+%! +External:term) is det
 %
-%	Set up a simulation to run
-%
-%	Call to re/set simulation to initial state
+%	run a new simulation
 %
 %	@arg StartTime time in user units to run the first tick at
 %	@arg TimeUnit how long is one user unit in nanos?
 %	@arg TickLength how long is a tick in user units?
+%	@arg external data for use by event listeners
 %
-start_simulation(StartTime, TimeUnit, TickLength) :-
-	retractall(current_time(_)),
-	asserta(current_time(StartTime)),
-	retractall(time_unit(_)),
-	asserta(time_unit(TimeUnit)),
-	retractall(tick_length(_)),
-	asserta(tick_length(TickLength)).
+start_simulation(StartTime, TimeUnit, TickLength, External) :-
+	Sim =
+		sim{
+		    current_time: StartTime,
+		    time_unit: TimeUnit,
+		    tick_length: TickLength,
+		    running: [],   % list of context=closure pairs
+		    context: [],    % context dicts
+		    external: External
+		},
+	do_tick(Sim).
 
-:- dynamic current_context/2.
+get_context(Sim, Context, ContextDict) :-
+	member(ContextDict, Sim.context),
+        ContextDict.context == Context.
 
-%! start_context(+Root:atom, +Context:integer, +Time:number) is det
+% ! start_context(+Root:atom, +Context:integer, +Time:number, :Sim:dict)
+% is det
 %
 %	Start the node Root in a new context Context
 %	with local clock Time
 %
-start_context(_Root, Context, Time) :-
-	current_context(Context, _),
+start_context(_Root, Context, Time, Sim) :-
+	get_context(Sim, Context, _),
 	format(atom(Msg), 'At ~w attempt to modify context ~w, which already exists', [Time, Context]),
 	throw(error(permission_error(modify, context, Context), context(Context, Msg))).
-start_context(Root, Context, Time) :-
-	\+ current_context(Context, _),
-	asserta(current_context(Context, _{
-					     running: [],
-					     time: Time
-					 })),
-	node_(_, Root, _, Args, _),
-	with_context(Context, start_node(Root, Args)).
+start_context(Root, Context, Time, Sim) :-
+	\+ get_context(Sim, Context, _),
+	node_(_, Root, _, _, _),
+	NewContextDict = context{
+			     context: Context,
+			     time: Time
+			 },
+	nb_set_dict(context, Sim, [NewContextDict | Sim.context]),
+	with_context(Context, start_node(Sim, Root)).
+
+% TODO done to here, converting to use destructively assigned dict for
+% sim and context and delimited continuations to run
+
+:- meta_predicate with_context(+, 0).
 
 with_context(Context, Goal) :-
 	b_getval(current_context, OldContext),
@@ -121,25 +138,63 @@ with_context(Context, Goal) :-
 	call(Goal),
 	b_setval(current_context, OldContext).
 
+%!	do_n_ticks(+N:integer) is det
+%
+%	call do_tick N times
+%
+do_n_ticks(N) :-
+	between(1, N, _),
+	do_tick,
+	fail.
+do_n_ticks(_).
+
+%!	do_tick is det
+%
+%	run the system, advancing the global clock one tick
+do_tick :-
+	run_all_contexts,
+	advance_tick.
+
+run_all_contexts :-
+	current_context(Context, ContextData),
+	_{ running: Nodes } :< ContextData,
+	with_context(Context, run_nodes_to_exhaustion(Nodes)),
+	fail.
+run_all_contexts.
 
 
-:- discontiguous start_node/2, tick_node/6.
+
+:- discontiguous start_node/1, tick_node/6.
 
 % Clock, Context, and TickVal will be b_setval'ed
 %
-		 /*******************************
-		 *  priority selector
-		 *
-		 *******************************/
+% TODO should we reset the simulation on make?
+%
 
-%!	start_node(+Name:atom, -State:term) is det
+%!	start_node(+Name:atom) is det
 %
-%	does not emit event
+%	start node Name on the current context
 %
-/* start_node(Name, Args) :-
-	get_oper(Name, -? ),
-	get_args(Name, Args).
-*/
+%	does not emit event.
+%	the first tick will do that if appropriate
+%
+%	Nodes are not inherently restartable. If a context
+%	is already running a node, the call is ignored.
+%
+/* start_node(Name) :-
+	(   node_running(Name)
+	->
+	true
+	;
+	node_(_, Node, Op, Args, _),
+	node_start_state(Op, Args, Start),
+	asserta(
+start_node(Name), Args)
+	node_(_, Name, Op, Args, _),
+
+. */	% DONE TO HERE
+
+	    % TODO reset contexts and running notes on start
 
 %!	tick_node(+Oper:atom, -Status:status) is det
 %
