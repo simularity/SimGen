@@ -5,17 +5,35 @@
 	      start_context/4, % start_context(+Root, +Context, +Time, :Sim)
 %	      end_context/1, % end_context(+Context),
 	      start_simulation/4, % start_simulation(+StartTime, +TimeUnit, +TickLength, +External)
+	      end_simulation/0,
 %	      bt_time/1, % get the time of the global clock
 %	      bt_context_time/2, % get the time of the context clock
 	      check_nodes/0 % check_nodes
 	 ]).
+/** <module> run time support for bt
+ *
+ * "If you have done something twice, you are likely to do it again."
+ *
+ * Brian Kernighan and Bob Pike
+*/
 
-:- use_module(library(pce)).
+		 /*******************************
+		 * Compilation support          *
+		 *******************************/
 
 :- dynamic node_/5.   % node_(Module, Head, Operator, Args, Children)
 
 :- module_transparent set_current_bt_module/0.
 
+%!	set_current_bt_module is det
+%
+%	module_transparent predicate that
+%	records the calling module.
+%	def_node/4 uses this info
+%
+%	Users usually won't call this.
+%	It's for the compiler
+%
 set_current_bt_module :-
 	writeln('in set_current_bt_module\n'),
 	context_module(Module),
@@ -24,6 +42,8 @@ set_current_bt_module :-
 %!	reset_nodes_for_module(+Module:atom) is det
 %
 %	reset the nodes for the passed in module
+%
+%       Users usually won't call this, it's for the compiler
 %
 reset_nodes_for_module(Module) :-
 	retractall(node_(Module, _, _, _, _)).
@@ -58,6 +78,8 @@ def_node(Head, Oper, Args, Children) :-
 %	Succeeds if all referenced nodes are defined
 %	emits messages if not.
 %
+%       Called at end of module compilation
+%
 check_nodes :-
 	\+ node_(_, _, _, _, _),
 	!.
@@ -80,6 +102,10 @@ print_no_def(Node, Head) :-
 	print_message(error, error(existance_error(procedure, Node),
 					      context(node:Head, Msg))).
 
+		 /*******************************
+		 *          User API            *
+		 *******************************/
+
 %!     start_simulation(
 %! +StartTime:number, +TimeUnit:number, +TickLength:number,
 %! +External:term) is det
@@ -94,24 +120,230 @@ print_no_def(Node, Head) :-
 start_simulation(StartTime, TimeUnit, TickLength, External) :-
 	Sim =
 		sim{
+		    run_simulator: true,
 		    current_time: StartTime,
 		    time_unit: TimeUnit,
 		    tick_length: TickLength,
+
+		    % TODO need separate lists of nodes that are running
+		    % and current tasks
 		    running: [],   % list of context=closure pairs
 		    context: [],    % context dicts
+		    to_be_started: [],
+		    to_be_terminated: [],
+		    frozen_flow_nodes: [],
 		    external: External
 		},
-	do_tick(Sim).
+	do_cycles(Sim).
+
+%!	end_simulation is det
+%
+%	Stop a running simulation at the
+%	end of the tick
+%
+%   Must be called from the simulation thread
+%   (usually a message listener)
+%
+end_simulation :-
+	shift(end_simulation).
+
+
+%
+		 /*******************************
+		 * Support for User API         *
+		 *******************************/
+
+		 /*******************************
+		 *	   Simulator            *
+		 *******************************/
+
+/* the interpreter runs in cycles.
+ * A cycle
+0. send the tick_start message
+1. get messages from an external message queue and add the associated
+tasks to the task queue.
+2. Run tasks, responding to shifts. The balls:
+    * qtask(Task)  - Queue the argument to be run in this tick
+    * qtnt(Task) - Queue the argument for the next tick
+    * end_simulation - stop the simulation
+    * getval(Name, Val) - bind Val if you can
+    * setval(Name, Val) - record val
+    * getclock(Name, Time) - Name is a Context for context clocks
+3. increment the clocks
+4. start another tick, using the task_next_tick queue as the tick queue
+
+
+The Sim object is evil. Have a list of clocks, qtask, and qtnt
+
+
+Task format
+
+task(Context, Node, Goal)
+
+
+
+
+1. Remove all tasks to be terminated, calling terminate on each.
+2. Start all tasks scheduled to be started. If there is a scheduled
+task with same context and node already running, ignore the restart.
+foreach context:
+   2.1, send the tick message
+   2.2. Run tasks
+3. If there are frozen flow nodes, print an error message and
+halt the simulation.
+4. increment the time for all clocks
+
+
+to run ticks:
+with all running context-node pairs
+    run the node.
+    if you get a continuation back with a ball of form end_simulation
+    stop the simulator.
+    if you get a continuation back with a ball of
+    form keep_running(Context, Node) shove the continuation on the list
+    if you get a continuation back with a ball of form
+    terminate(Context, Node) eliminate this node from the run list, then
+    recursively call the continuation. % have to be explicit about
+    context, it could change below if you get a continuation back with
+    set_dynamic(Context, VarName, Value) set the value, check for newly
+    runnable flow nodes, run them, and remove from frozen flow notdes,
+    and run the continuation. if you get a continuation back with
+    get_dynamic(Context, VarName, Value) and you have a value, bind
+    Value to it and call the continuation if you get a continuation back
+    with get_dynamic and don't have the value, put it on the list of
+    non-runnable flow nodes
+
+*/
+
+/*
+ *  Queue to send messages into the system during simulation
+ */
+:- initialization message_queue_create(_, [alias(simgen)]).
+
+%!	do_cycles(+Sim:dict) is det
+%
+%	Run the simulator
+%	Implements the basic simulator construct
+%
+do_cycles(Sim) :-
+	_{ run_simulator: false } :< Sim,
+	!.
+do_cycles(Sim) :-
+	broadcast(tick_start(Sim.current_time)),
+	process_pending_messages(Sim),
+	terminate
+	Sim.running
+	terminate_terminated(Sim.running, Sim.to_be_terminated, StillRunning),
+	start_started(StillRunning, Sim.to_be_started, NowRunning),
+	nb_set_dict(running, Sim, NowRunning),
+	do_context_dependent(Sim),
+	Sim.frozen_flow_nodes == [],
+	increment_clocks(Sim),
+	do_cycles(Sim).
+
+%!	do_context_dependent(+Sim:dict) is det
+%
+%	Do the context dependent part of the tick
+%
+% with all running context-node pairs
+%    run the node.
+%    if you get a continuation back with a ball of form end_simulation
+%    stop the simulator.
+%    if you get a continuation back with a ball of
+%    form keep_running(Context, Node) shove the continuation on the list
+%    if you get a continuation back with a ball of form
+%    terminate(Context, Node) eliminate this node from the run list,
+%    then
+%    recursively call the continuation. % have to be explicit about
+%    context, it could change below if you get a continuation back with
+%    set_dynamic(Context, VarName, Value) set the value, check for newly
+%    runnable flow nodes, run them, and remove from frozen flow notdes,
+%    and run the continuation. if you get a continuation back with
+%    get_dynamic(Context, VarName, Value) and you have a value, bind
+%    Value to it and call the continuation if you get a continuation
+%    back
+%    with get_dynamic and don't have the value, put it on the list of
+%    non-runnable flow nodes
+%
+do_context_dependent(Sim) :-
+   run_nodes(Sim, Sim.running).
+
+run_nodes(_Sim, []).
+run_nodes(Sim, [H | T]) :-
+	  task{node: H.node,
+		   context: H.context,
+		   first_tick: true
+		  } :< H,
+
+
+
+
+
+%!	terminate_terminated(+InTasks:list, +Terminate:list, -OutTasks)
+%!	is det
+%
+%	Terminate and remove terminated tasks from the list.
+%
+%	@arg InTasks list of tasks
+%	@arg Terminate list to terminate, of dicts of form
+%            _{ node:Node,
+%	        context: Context
+%	        }
+%	@arg OutTasks  list of tasks with with terminated ones removed
+%
+terminate_terminated([], _, []).
+terminate_terminated([H | InTasks], Terminate, OutTasks) :-
+	member(T, Terminate),
+	T :< H,
+	!,
+	terminate_task(H),
+	terminate_terminated(InTasks, Terminate, OutTasks).
+terminate_terminated([H | InTasks], Terminate, [H | OutTasks]) :-
+	terminate_terminated(InTasks, Terminate, OutTasks).
+
+%!	start_started(+AlreadyRunning:list, +ToStart:list,
+%!	-NowRunning:list) is det
+%
+%	add the started tasks to the list, starting each
+%
+start_started(AlreadyRunning, [], AlreadyRunning).
+start_started(AlreadyRunning, [H | ToStart], NowRunning) :-
+	member(T, AlreadyRunning),
+	_{ node: H.node,
+	   context: H.context
+	 } :< T,
+	 !,
+	 start_started(AlreadyRunning, ToStart, NowRunning).
+start_started(AlreadyRunning, [H | ToStart], NowRunning) :-
+	do_start_node(H, HTask),
+	start_started([HTask | AlreadyRunning], ToStart, NowRunning).
+
+
+% for now this just makes the task dict
+do_start_node(H,
+	      task{node: H.node,
+		   context: H.context,
+		   first_tick: true
+		  }).
+
+% for now this just quits giving cycles
+% % maybe a broadcast event?
+terminate_task(_).
 
 get_context(Sim, Context, ContextDict) :-
 	member(ContextDict, Sim.context),
         ContextDict.context == Context.
+
+
+% TODO fix this
 
 % ! start_context(+Root:atom, +Context:integer, +Time:number, :Sim:dict)
 % is det
 %
 %	Start the node Root in a new context Context
 %	with local clock Time
+%
+%	Must only be called within a listener
 %
 start_context(_Root, Context, Time, Sim) :-
 	get_context(Sim, Context, _),
@@ -126,91 +358,3 @@ start_context(Root, Context, Time, Sim) :-
 			 },
 	nb_set_dict(context, Sim, [NewContextDict | Sim.context]),
 	with_context(Context, start_node(Sim, Root)).
-
-% TODO done to here, converting to use destructively assigned dict for
-% sim and context and delimited continuations to run
-
-:- meta_predicate with_context(+, 0).
-
-with_context(Context, Goal) :-
-	b_getval(current_context, OldContext),
-	b_setval(current_context, Context),
-	call(Goal),
-	b_setval(current_context, OldContext).
-
-%!	do_n_ticks(+N:integer) is det
-%
-%	call do_tick N times
-%
-do_n_ticks(N) :-
-	between(1, N, _),
-	do_tick,
-	fail.
-do_n_ticks(_).
-
-%!	do_tick is det
-%
-%	run the system, advancing the global clock one tick
-do_tick :-
-	run_all_contexts,
-	advance_tick.
-
-run_all_contexts :-
-	current_context(Context, ContextData),
-	_{ running: Nodes } :< ContextData,
-	with_context(Context, run_nodes_to_exhaustion(Nodes)),
-	fail.
-run_all_contexts.
-
-
-
-:- discontiguous start_node/1, tick_node/6.
-
-% Clock, Context, and TickVal will be b_setval'ed
-%
-% TODO should we reset the simulation on make?
-%
-
-%!	start_node(+Name:atom) is det
-%
-%	start node Name on the current context
-%
-%	does not emit event.
-%	the first tick will do that if appropriate
-%
-%	Nodes are not inherently restartable. If a context
-%	is already running a node, the call is ignored.
-%
-/* start_node(Name) :-
-	(   node_running(Name)
-	->
-	true
-	;
-	node_(_, Node, Op, Args, _),
-	node_start_state(Op, Args, Start),
-	asserta(
-start_node(Name), Args)
-	node_(_, Name, Op, Args, _),
-
-. */	% DONE TO HERE
-
-	    % TODO reset contexts and running notes on start
-
-%!	tick_node(+Oper:atom, -Status:status) is det
-%
-/*
-tick_node(Name, Status)  :-
-	context_name(CName),
-tick_node( -? , _, _, _, _, [], [], succeed).
-tick_node( -? ,
-	   Context,
-	   Clock,
-	   TickLen,
-	   Args,
-	   [Head | Tail],
-	   OutState,
-	   Status) :-
-	tick_node(Head, Context, Clock, TickLen, Arg
-
-*/
-

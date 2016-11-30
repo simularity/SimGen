@@ -9,8 +9,13 @@
 
 :- quasi_quotation_syntax(behavior_tree:bt).
 
+% for debugging
 system:term_expansion(define_bt(X), X) :- write('term expands to:'),writeln(X).
 
+%!	bt(Content, SyntaxArgs, VariableNames, Result) is det
+%
+%	Quasiquoter for the bt language
+%
 bt(Content, _SyntaxArgs, _VariableNames, Result) :-
 	debug(bt, 'bt in ~w', [Content]),
     phrase_from_quasi_quotation(bt_dcg(Result), Content),
@@ -22,6 +27,5 @@ user:message_hook(load_file(Data), _, _) :-
 	reset_nodes_for_module(Module),
 	debug(bt, 'reset ~w nodes', [Module]).
 
-% TODO enable when this works
 system:term_expansion(end_of_file, [:-(bt_impl:check_nodes), end_of_file]).
 
