@@ -52,27 +52,28 @@ type_b !
 
 wawei(N) :-
 	start_simulation(0, 60_000_000_000, 60_000_000_000,
-	   _{
+	   extern{
 		  next_context: N,
 		  add_context_on_tick: 0
 	   }).
 
-:- listen(tick(Sim, Tick), consider_adding_context(Sim, Tick)).
+:- listen(tick(Extern, Tick, NewExtern), consider_adding_context(Extern, Tick, NewExtern)).
 
-consider_adding_context(Sim, Tick) :-
-	Sim.external.add_context_on_tick > Tick,
+consider_adding_context(Extern, Tick, Extern) :-
+	Extern.add_context_on_tick > Tick,
 	!.
-consider_adding_context(Sim, _Tick) :-
-	Sim.external.next_context = 0,
+consider_adding_context(Extern, _, _) :-
+	Extern.next_context = 0,
 	!,
-	stop_simulation(Sim).
-consider_adding_context(Sim, Tick) :-
-	Sim.external.add_context_on_tick =< Tick,
-	NextContext = Sim.external.next_context,
-	succ(NN, NextContext),
-	nb_set_dict(next_context, Sim.external, NN),
+	end_simulation.
+consider_adding_context(Extern, Tick, NewExtern) :-
+	Extern.add_context_on_tick =< Tick,
+	succ(NN, Extern.next_context),
 	random_between(1, 20, R),
 	NewTick is R + Tick,
-	nb_set_dict(next_context_on_tick, Sim.external, NewTick),
-	start_context(wawei, NextContext, 0, Sim).
+	NewExtern  = extern{
+			 next_context: NN,
+			 add_context_on_tick: NewTick
+		     },
+	start_context(wawei, Extern.next_context, 0, NewExtern).
 

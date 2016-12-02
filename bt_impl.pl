@@ -118,23 +118,10 @@ print_no_def(Node, Head) :-
 %	@arg external data for use by event listeners
 %
 start_simulation(StartTime, TimeUnit, TickLength, External) :-
-	Sim =
-		sim{
-		    run_simulator: true,
-		    current_time: StartTime,
-		    time_unit: TimeUnit,
-		    tick_length: TickLength,
-
-		    % TODO need separate lists of nodes that are running
-		    % and current tasks
-		    running: [],   % list of context=closure pairs
-		    context: [],    % context dicts
-		    to_be_started: [],
-		    to_be_terminated: [],
-		    frozen_flow_nodes: [],
-		    external: External
-		},
-	do_cycles(Sim).
+	do_tasks(config(TimeUnit, TickLength, External),
+		 [clock(simgen, StartTime)],   % only clock in list is simgen
+		 [], % qtask is empty
+		 []). % qtnt is empty
 
 %!	end_simulation is det
 %
@@ -145,8 +132,7 @@ start_simulation(StartTime, TimeUnit, TickLength, External) :-
 %   (usually a message listener)
 %
 end_simulation :-
-	shift(end_simulation).
-
+	thread_send_message(simgen, end_simulation).
 
 %
 		 /*******************************
@@ -159,7 +145,7 @@ end_simulation :-
 
 /* the interpreter runs in cycles.
  * A cycle
-0. send the tick_start message
+0. send the tick message, and replace the Extern with NewExtern
 1. get messages from an external message queue and add the associated
 tasks to the task queue.
 2. Run tasks, responding to shifts. The balls:
@@ -168,50 +154,20 @@ tasks to the task queue.
     * end_simulation - stop the simulation
     * getval(Name, Val) - bind Val if you can
     * setval(Name, Val) - record val
-    * getclock(Name, Time) - Name is a Context for context clocks
+    * getclock(Name, Time) - Name is a Context for context clock
+    * terminate(Node, Context) - remove all tasks from qtask and
+      qtnt that unify with Node and Context
 3. increment the clocks
 4. start another tick, using the task_next_tick queue as the tick queue
+and with a fresh set of vals
 
+The Sim object is evil. Have a list of clocks, extern, values, qtask,
+and qtnt
 
-The Sim object is evil. Have a list of clocks, qtask, and qtnt
+Task format  =|task(Context, Node, Goal)|=
 
-
-Task format
-
-task(Context, Node, Goal)
-
-
-
-
-1. Remove all tasks to be terminated, calling terminate on each.
-2. Start all tasks scheduled to be started. If there is a scheduled
-task with same context and node already running, ignore the restart.
-foreach context:
-   2.1, send the tick message
-   2.2. Run tasks
-3. If there are frozen flow nodes, print an error message and
-halt the simulation.
-4. increment the time for all clocks
-
-
-to run ticks:
-with all running context-node pairs
-    run the node.
-    if you get a continuation back with a ball of form end_simulation
-    stop the simulator.
-    if you get a continuation back with a ball of
-    form keep_running(Context, Node) shove the continuation on the list
-    if you get a continuation back with a ball of form
-    terminate(Context, Node) eliminate this node from the run list, then
-    recursively call the continuation. % have to be explicit about
-    context, it could change below if you get a continuation back with
-    set_dynamic(Context, VarName, Value) set the value, check for newly
-    runnable flow nodes, run them, and remove from frozen flow notdes,
-    and run the continuation. if you get a continuation back with
-    get_dynamic(Context, VarName, Value) and you have a value, bind
-    Value to it and call the continuation if you get a continuation back
-    with get_dynamic and don't have the value, put it on the list of
-    non-runnable flow nodes
+do_tick and do_task mutually recursive? No - have do_task that gets
+[H|T]. When it gets [], it starts a new cycle. Might have a timeout.
 
 */
 
@@ -220,141 +176,251 @@ with all running context-node pairs
  */
 :- initialization message_queue_create(_, [alias(simgen)]).
 
-%!	do_cycles(+Sim:dict) is det
+
+%!	do_tasks(+Config:term, +Clocks:list, +Vals:list,
+%	+OldVals:list, +QTasks:list, +QTNT:list, +External:term) is det
 %
-%	Run the simulator
-%	Implements the basic simulator construct
+%	perform simgen tasks. This is the big kahuna.
 %
-do_cycles(Sim) :-
-	_{ run_simulator: false } :< Sim,
-	!.
-do_cycles(Sim) :-
-	broadcast(tick_start(Sim.current_time)),
-	process_pending_messages(Sim),
-	terminate
-	Sim.running
-	terminate_terminated(Sim.running, Sim.to_be_terminated, StillRunning),
-	start_started(StillRunning, Sim.to_be_started, NowRunning),
-	nb_set_dict(running, Sim, NowRunning),
-	do_context_dependent(Sim),
-	Sim.frozen_flow_nodes == [],
-	increment_clocks(Sim),
-	do_cycles(Sim).
-
-%!	do_context_dependent(+Sim:dict) is det
+%	@arg Config term with misc stuff we need
+%	@arg Clocks a list of terms clock(Name, Time)
+%	@arg Vals a list of continuous values known for this tick
+%	@arg OldVals a list of continuous values known for last tick
+%	@arg QTasks a list of tasks to run this tick
+%	@arg QTNT a list of tasks to run next tick
 %
-%	Do the context dependent part of the tick
+do_tasks(Config, Clocks, Vals, _, [], [], QTNT) :-
+	% no more tasks, move to next tick
+	memberchk(clock(simgen, Time), Clocks),
+	Config = config(TimeUnit, TickLength, Extern),
+	broadcast(tick(Extern, Time, NewExtern)),
+	get_message_tasks(MessageTasks),
+	append(QTNT, MessageTasks, NewTasks),
+	increment_clocks(Config, Clocks, NewClocks),
+	do_tasks(config(TimeUnit, TickLength, NewExtern),
+		 NewClocks,
+		 [],
+		 Vals,
+		 NewTasks,
+		 []).
+do_tasks(Config, Clocks, Vals, OldVals, [task(Context, Node, Goal) | Rest], QTNT) :-
+    with_context(Context, reset(Goal, Ball, Continuation)),
+    handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    Rest,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation).
+
+% I am out of balls for this task
+handle_the_ball(    0,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    _Context,
+		    _Node,
+		    _) :-
+	do_tasks(Config, Clocks, Vals, OldVals, QTasks, QTNT).
+% Queue a task for execution this tick
+handle_the_ball(    qtask(Task),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	append(QTasks, [Task], NewTasks),
+	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    NewTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+% Queue a task for execution next tick
+handle_the_ball(    qtnt(Task),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    [Task | QTNT],
+		    Context,
+		    Node,
+		    NewContinuation).
+% End the simulation.
+handle_the_ball(end_simulation, _, _, _, _, _, _, _, _, _).
+% Get the value this tick
+% Caller must check value. If it's ground, life is good.
+% if not, Must be called again
+% til you get grounded value
+handle_the_ball(    getval(Name, Val),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	get_the_value(Context, Name, Vals, Val),
+	(   ground(Val) ->
+	    NewQTasks = QTasks,
+	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	    handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation)
+
+	;
+	    append(QTasks, [task(Context, Node, Continuation)], NewQTasks),
+	    do_tasks(Config, Clocks, Vals, OldVals, NewQTasks, QTNT)
+	).
+
+% get the value last tick
+handle_the_ball(    lastval(Name, Val),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	get_the_value(Context, Name, OldVals, Val),
+	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+% Set the value
+handle_the_ball(    setval(Name, Val),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	get_the_value(Context, Name, OldVals, AVal, By),   % extra arity version gets who set it
+	(   ground(AVal),
+	    print_message(error, bt_fatal_error(flow_error(multiple_sources), culprit(Node, Context, Name, By)))
+	;
+	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	    handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    [val(Name, Context, Node, Val) | Vals],
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation)
+	).
+% get the clock
 %
-% with all running context-node pairs
-%    run the node.
-%    if you get a continuation back with a ball of form end_simulation
-%    stop the simulator.
-%    if you get a continuation back with a ball of
-%    form keep_running(Context, Node) shove the continuation on the list
-%    if you get a continuation back with a ball of form
-%    terminate(Context, Node) eliminate this node from the run list,
-%    then
-%    recursively call the continuation. % have to be explicit about
-%    context, it could change below if you get a continuation back with
-%    set_dynamic(Context, VarName, Value) set the value, check for newly
-%    runnable flow nodes, run them, and remove from frozen flow notdes,
-%    and run the continuation. if you get a continuation back with
-%    get_dynamic(Context, VarName, Value) and you have a value, bind
-%    Value to it and call the continuation if you get a continuation
-%    back
-%    with get_dynamic and don't have the value, put it on the list of
-%    non-runnable flow nodes
+% clocks are named simgen for the master clock, the context for the
+% context clock, and Context-Node-Something for other clocks
 %
-do_context_dependent(Sim) :-
-   run_nodes(Sim, Sim.running).
+handle_the_ball(    getclock(Name, Val),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	get_the_value(Context, Name, OldVals, AVal, By),   % extra arity version gets who set it
+	(   ground(AVal),
+	    print_message(error, bt_fatal_error(flow_error(multiple_sources), culprit(Node, Context, Name, By)))
+	;
+	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	    handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    [val(Name, Context, Node, Val) | Vals],
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation)
+	).
+%  terminate(Node, Context) - remove all tasks from qtask and
+%      qtnt that unify with Node and Context
+handle_the_ball(    terminate(Node, Context),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	    select(task(Context, Node, _), QTasks, NewQTasks),
+	    select(task(Context, Node, _), QTNT, NewQTNT),
+	    handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    NewQTasks,
+		    NewQTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
 
-run_nodes(_Sim, []).
-run_nodes(Sim, [H | T]) :-
-	  task{node: H.node,
-		   context: H.context,
-		   first_tick: true
-		  } :< H,
-
-
-
-
-
-%!	terminate_terminated(+InTasks:list, +Terminate:list, -OutTasks)
-%!	is det
-%
-%	Terminate and remove terminated tasks from the list.
-%
-%	@arg InTasks list of tasks
-%	@arg Terminate list to terminate, of dicts of form
-%            _{ node:Node,
-%	        context: Context
-%	        }
-%	@arg OutTasks  list of tasks with with terminated ones removed
-%
-terminate_terminated([], _, []).
-terminate_terminated([H | InTasks], Terminate, OutTasks) :-
-	member(T, Terminate),
-	T :< H,
-	!,
-	terminate_task(H),
-	terminate_terminated(InTasks, Terminate, OutTasks).
-terminate_terminated([H | InTasks], Terminate, [H | OutTasks]) :-
-	terminate_terminated(InTasks, Terminate, OutTasks).
-
-%!	start_started(+AlreadyRunning:list, +ToStart:list,
-%!	-NowRunning:list) is det
-%
-%	add the started tasks to the list, starting each
-%
-start_started(AlreadyRunning, [], AlreadyRunning).
-start_started(AlreadyRunning, [H | ToStart], NowRunning) :-
-	member(T, AlreadyRunning),
-	_{ node: H.node,
-	   context: H.context
-	 } :< T,
-	 !,
-	 start_started(AlreadyRunning, ToStart, NowRunning).
-start_started(AlreadyRunning, [H | ToStart], NowRunning) :-
-	do_start_node(H, HTask),
-	start_started([HTask | AlreadyRunning], ToStart, NowRunning).
-
-
-% for now this just makes the task dict
-do_start_node(H,
-	      task{node: H.node,
-		   context: H.context,
-		   first_tick: true
-		  }).
-
-% for now this just quits giving cycles
-% % maybe a broadcast event?
-terminate_task(_).
-
-get_context(Sim, Context, ContextDict) :-
-	member(ContextDict, Sim.context),
-        ContextDict.context == Context.
+with_context(Context, Goal) :-
+	b_getval(context, OldContext),
+	b_setval(context, Context),
+	call(Goal),
+	b_setval(context, OldContext).
 
 
-% TODO fix this
-
-% ! start_context(+Root:atom, +Context:integer, +Time:number, :Sim:dict)
-% is det
-%
-%	Start the node Root in a new context Context
-%	with local clock Time
-%
-%	Must only be called within a listener
-%
-start_context(_Root, Context, Time, Sim) :-
-	get_context(Sim, Context, _),
-	format(atom(Msg), 'At ~w attempt to modify context ~w, which already exists', [Time, Context]),
-	throw(error(permission_error(modify, context, Context), context(Context, Msg))).
-start_context(Root, Context, Time, Sim) :-
-	\+ get_context(Sim, Context, _),
-	node_(_, Root, _, _, _),
-	NewContextDict = context{
-			     context: Context,
-			     time: Time
-			 },
-	nb_set_dict(context, Sim, [NewContextDict | Sim.context]),
-	with_context(Context, start_node(Sim, Root)).
+% TODO make good messages
