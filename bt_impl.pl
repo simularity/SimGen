@@ -2,7 +2,7 @@
 	      reset_nodes_for_module/1,
 	      set_current_bt_module/0,
 	      def_node/4,   % node(+Head, +Oper, +Args, +Children)
-	      start_context/4, % start_context(+Root, +Context, +Time, :Sim)
+	      start_context/3, % start_context(+Root, +Context, +Time)
 %	      end_context/1, % end_context(+Context),
 	      start_simulation/4, % start_simulation(+StartTime, +TimeUnit, +TickLength, +External)
 	      end_simulation/0,
@@ -120,8 +120,11 @@ print_no_def(Node, Head) :-
 start_simulation(StartTime, TimeUnit, TickLength, External) :-
 	do_tasks(config(TimeUnit, TickLength, External),
 		 [clock(simgen, StartTime)],   % only clock in list is simgen
-		 [], % qtask is empty
-		 []). % qtnt is empty
+		 [], % vals empty at start of tick
+		 [], % no oldvals, no previous tick
+		 [], % qtasks is empty, start of tick
+		 [], % qtnt is empty
+		External).
 
 %!	end_simulation is det
 %
@@ -133,6 +136,10 @@ start_simulation(StartTime, TimeUnit, TickLength, External) :-
 %
 end_simulation :-
 	thread_send_message(simgen, end_simulation).
+
+start_context(Root, Context, Time) :-
+	thread_send_message(simgen, task(Context, Root, start_context_clock(Context, Time))),
+	thread_send_message(simgen, task(Context, Root, run_node(Context, Root))). % this IS first tick
 
 %
 		 /*******************************
@@ -174,11 +181,16 @@ do_tick and do_task mutually recursive? No - have do_task that gets
 /*
  *  Queue to send messages into the system during simulation
  */
-:- initialization message_queue_create(_, [alias(simgen)]).
+:- initialization (  message_queue_property(_, alias(simgen)),
+		     message_queue_destroy(simgen)
+		  ;
+		     true
+		  ),
+		  message_queue_create(_, [alias(simgen)]).
 
 
 %!	do_tasks(+Config:term, +Clocks:list, +Vals:list,
-%	+OldVals:list, +QTasks:list, +QTNT:list, +External:term) is det
+%!	+OldVals:list, +QTasks:list, +QTNT:list, +External:term) is det
 %
 %	perform simgen tasks. This is the big kahuna.
 %
@@ -189,6 +201,8 @@ do_tick and do_task mutually recursive? No - have do_task that gets
 %	@arg QTasks a list of tasks to run this tick
 %	@arg QTNT a list of tasks to run next tick
 %
+do_tasks(_, _, _, _, _, _, _) :-
+	end_simulation_message_exists.
 do_tasks(Config, Clocks, Vals, _, [], [], QTNT) :-
 	% no more tasks, move to next tick
 	memberchk(clock(simgen, Time), Clocks),
@@ -215,6 +229,33 @@ do_tasks(Config, Clocks, Vals, OldVals, [task(Context, Node, Goal) | Rest], QTNT
 		    Context,
 		    Node,
 		    Continuation).
+
+%!	handle_the_ball(+Ball:ball,
+%!           +Config:term,
+%!           +Clocks:list,
+%!           +Vals:list,
+%!           +OldVals:list,
+%!           +QTasks:list,
+%!           +QTNT:list,
+%!           +Context:integer,
+%!           +Node:atom,
+%!           +Continuation) is det
+%
+%           Passed a ball from a task, handle it and
+%           continue simulating.
+%
+%   @arg Ball the ball passed by the task
+%   @arg Config term of form config(TimeUnit, TickLength, Extern)
+%   @arg Clocks list of clocks
+%   @arg Vals list of value terms of the form val(VariableName, Context,
+%          Node, Val)
+%   @arg OldVals list of value terms from the previous cycle
+%   @arg QTasks list of queued tasks
+%   @arg QTNT list of tasks queud for next tick
+%   @arg Context the context of the current ball
+%   @arg Node the node that threw the current ball
+%   @arg Continuation the continuation to call to resume processing
+%
 
 % I am out of balls for this task
 handle_the_ball(    0,
@@ -251,6 +292,30 @@ handle_the_ball(    qtask(Task),
 		    Context,
 		    Node,
 		    NewContinuation).
+% Queue a task to continue next tick
+handle_the_ball(    next_tick(NodeContext, NodeName),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	append(QTNT, [task(NodeContext, NodeName, Continuation)], NewQTNT),
+	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    NewQTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+
 % Queue a task for execution next tick
 handle_the_ball(    qtnt(Task),
 		    Config,
@@ -289,9 +354,7 @@ handle_the_ball(    getval(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
-	get_the_value(Context, Name, Vals, Val),
-	(   ground(Val) ->
-	    NewQTasks = QTasks,
+	(   get_the_value(Context, Name, Vals, Val, _),
 	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
 	    handle_the_ball(Ball,
 		    Config,
@@ -303,7 +366,6 @@ handle_the_ball(    getval(Name, Val),
 		    Context,
 		    Node,
 		    NewContinuation)
-
 	;
 	    append(QTasks, [task(Context, Node, Continuation)], NewQTasks),
 	    do_tasks(Config, Clocks, Vals, OldVals, NewQTasks, QTNT)
@@ -320,7 +382,10 @@ handle_the_ball(    lastval(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
-	get_the_value(Context, Name, OldVals, Val),
+	(   get_the_value(Context, Name, OldVals, Val, _)
+	;   print_message(error,
+		bt_fatal_error(flow_error(no_source_last_cycle), culprit(Node, Context, Name, none)))
+        ),
 	with_context(Context, reset(Continuation, Ball, NewContinuation)),
 	handle_the_ball(Ball,
 		    Config,
@@ -343,8 +408,7 @@ handle_the_ball(    setval(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
-	get_the_value(Context, Name, OldVals, AVal, By),   % extra arity version gets who set it
-	(   ground(AVal),
+	(   get_the_value(Context, Name, OldVals, _AVal, By),
 	    print_message(error, bt_fatal_error(flow_error(multiple_sources), culprit(Node, Context, Name, By)))
 	;
 	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
@@ -374,12 +438,12 @@ handle_the_ball(    getclock(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
-	get_the_value(Context, Name, OldVals, AVal, By),   % extra arity version gets who set it
-	(   ground(AVal),
-	    print_message(error, bt_fatal_error(flow_error(multiple_sources), culprit(Node, Context, Name, By)))
+	(   member(clock(Name, Val), Clocks)
 	;
-	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
-	    handle_the_ball(Ball,
+	    print_message(error, bt_fatal_error(flow_error(no_clock), culprit(Node, Context, Name)))
+	),
+	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+        handle_the_ball(Ball,
 		    Config,
 		    Clocks,
 		    [val(Name, Context, Node, Val) | Vals],
@@ -388,9 +452,35 @@ handle_the_ball(    getclock(Name, Val),
 		    QTNT,
 		    Context,
 		    Node,
-		    NewContinuation)
-	).
-%  terminate(Node, Context) - remove all tasks from qtask and
+		    NewContinuation).
+handle_the_ball(    newclock(Name, Time),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	(   member(clock(Name, _), Clocks),
+	    print_message(error, bt_fatal_error(flow_error(restart_clock), culprit(Node, Context, Node)))
+	;
+	   true
+	),
+	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+        handle_the_ball(Ball,
+		    Config,
+		    [clock(Name, Time) | Clocks],
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+
+% terminate(Node, Context) - remove all tasks from qtask and
 %      qtnt that unify with Node and Context
 handle_the_ball(    terminate(Node, Context),
 		    Config,
@@ -421,6 +511,101 @@ with_context(Context, Goal) :-
 	b_setval(context, Context),
 	call(Goal),
 	b_setval(context, OldContext).
+
+current_context(Context) :-
+	b_getval(context, Context).
+
+with_node(Node, Goal) :-
+	b_getval(current_node, OldNode),
+	b_setval(current_node, Node),
+	call(Goal),
+	b_setval(current_node, OldNode).
+
+current_node(Node) :-
+	b_getval(current_node, Node).
+
+
+get_message_tasks([task(Context, Node, Goal) | Rest]) :-
+	thread_get_message(simgen, task(Context, Node, Goal), [timeout(0)]),
+	get_message_tasks(Rest).
+get_message_tasks([]).
+
+end_simulation_message_exists :-
+	thread_get_message(simgen, end_simulation, [timeout(0)]).
+
+increment_clocks(_, [], []).
+increment_clocks(config(TimeUnit, TickLength, External),
+		 [clock(Name, Time) | Clocks],
+		 [clock(Name, NewTime) | NewClocks]) :-
+	NewTime is Time + TickLength,
+	increment_clocks(config(TimeUnit, TickLength, External), Clocks, NewClocks).
+
+get_the_value(Context, Name, Vals, Val, Node) :-
+	member(val(Name, Context, Node, Val), Vals).
+
+		 /*******************************
+		 * Run Time Library	       *
+		 *******************************/
+
+start_context_clock(Context, Time) :-
+	shift(newclock(Context, Time)).
+
+run_node(Context, Node) :-
+	node_(_M, Node, Op, Args, Children),
+	with_context(Context, with_node(Node, run_node(Op, Args, Children))).
+
+run_node(Node) :-
+	current_context(Context),
+	run_node(Context, Node).
+
+run_node(~? , Args, Children) :-
+	sum_list(Args, Total),
+	Select is random_float * Total,
+	run_random(Select, Args, Children).
+run_node('!' , [FirstTick, OtherTicks], _) :-
+	eval(FirstTick),
+	current_context(Context),
+	current_node(Node),
+	shift(next_tick(Context, Node)),
+	more_eval(OtherTicks).
+
+more_eval(Statements) :-
+	eval(Statements),
+	current_context(Context),
+	current_node(Node),
+	shift(next_tick(Context, Node)),
+	more_eval(Statements).
+
+run_random(_Select, _, [Child]) :-
+	run_node(Child).
+run_random(Select, [A |_], [Child | _]) :-
+	Select < A,
+	run_node(Child).
+run_random(Select, [A |T], [_ | Kids]) :-
+	Select >= A,
+	NS is Select - A,
+	run_random(NS, T, Kids).
+run_random(_, [], _) :-
+	current_node(Node),
+	print_message(warning, bt_nonfatal_error(node_error(no_child_to_run), culprit(Node))).
+
+		 /*******************************
+		 * Continuous evaluator
+		 *******************************/
+
+eval([]).
+eval([H | T]) :-
+	eval(H),
+	eval(T).
+eval(':='(LVAL, RVAL)) :-
+	eval_rval(lastval, RVAL, Value),
+	shift(setval(LVAL, Value)).
+eval('='(LVAL, RVAL)) :-
+	eval_rval(getval, RVAL, Value),
+	shift(setval(LVAL, Value)).
+
+% note you have to call getval in a loop - make convenience preds for
+% getval and lastval
 
 
 % TODO make good messages

@@ -1,0 +1,47 @@
+proper context
+proper clock
+
+Tasks:
+write do_cycles
+make start_node cooperate
+make rest of API work
+make independent clocks work
+make contexts work
+do lots of testing
+
+
+
+if a node runs children, it has to do the same.
+
+Decide on the semantics of termination.
+termination never happens 'during' a tick
+
+termination, ending, and start?
+
+A cycle 
+0. send the tick_start message
+1. Remove all items to be terminated, calling terminate on each.
+2. Start all items scheduled to be started. If there is a scheduled item already running, ignore the restart.
+for each context:
+   2.1, send the tick message
+   2.2. Run tasks
+3. If there are frozen flow nodes, print an error message and halt the simulation.
+4. increment the time for all clocks
+
+to run ticks:
+with all running context-node pairs
+    run the node.
+    if you get a continuation back with a ball of form keep_running(Context, Node)
+    shove the continuation on the list
+    if you get a continuation back with a ball of form terminate(Context, Node)
+    eliminate this node from the run list, then recursively call the continuation.
+    % have to be explicit about context, it could change below
+    if you get a continuation back with set_dynamic(Context, VarName, Value) set
+the value, check for newly runnable flow nodes, run them, and remove from frozen flow notdes, and run the continuation. 
+    if you get a continuation back with get_dynamic(Context, VarName, Value) and
+you have a value, bind Value to it and call the continuation
+    if you get a continuation back with get_dynamic and don't have the value, put it
+on the list of non-runnable flow nodes
+
+
+

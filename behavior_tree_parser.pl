@@ -66,8 +66,8 @@ bt_statement(':-'(def_node(Head, Operator, Args, Children))) -->
 
 head(Head) --> an_atom(Head).
 
-bt_operator( ~? ) --> "~?".
-bt_operator( '!' ) --> "!".
+bt_operator( ~? ) --> "~?".     % random selector
+bt_operator( '!' ) --> "!".     % continuous action
 
 bt_args( ~? , Args, Children) --> prob_list(Args, Children).
 bt_args( '!', [FirstTicks, RestTicks], []) -->
