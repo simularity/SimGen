@@ -118,13 +118,14 @@ print_no_def(Node, Head) :-
 %	@arg external data for use by event listeners
 %
 start_simulation(StartTime, TimeUnit, TickLength, External) :-
+	b_setval(context, 0),
+	b_setval(current_node, none),
 	do_tasks(config(TimeUnit, TickLength, External),
 		 [clock(simgen, StartTime)],   % only clock in list is simgen
 		 [], % vals empty at start of tick
 		 [], % no oldvals, no previous tick
 		 [], % qtasks is empty, start of tick
-		 [], % qtnt is empty
-		External).
+		 []). % qtnt is empty
 
 %!	end_simulation is det
 %
@@ -190,7 +191,7 @@ do_tick and do_task mutually recursive? No - have do_task that gets
 
 
 %!	do_tasks(+Config:term, +Clocks:list, +Vals:list,
-%!	+OldVals:list, +QTasks:list, +QTNT:list, +External:term) is det
+%!	+OldVals:list, +QTasks:list, +QTNT:list) is det
 %
 %	perform simgen tasks. This is the big kahuna.
 %
@@ -201,9 +202,9 @@ do_tick and do_task mutually recursive? No - have do_task that gets
 %	@arg QTasks a list of tasks to run this tick
 %	@arg QTNT a list of tasks to run next tick
 %
-do_tasks(_, _, _, _, _, _, _) :-
+do_tasks(_, _, _, _, _, _) :-
 	end_simulation_message_exists.
-do_tasks(Config, Clocks, Vals, _, [], [], QTNT) :-
+do_tasks(Config, Clocks, Vals, _, [], QTNT) :-
 	% no more tasks, move to next tick
 	memberchk(clock(simgen, Time), Clocks),
 	Config = config(TimeUnit, TickLength, Extern),
@@ -213,11 +214,12 @@ do_tasks(Config, Clocks, Vals, _, [], [], QTNT) :-
 	increment_clocks(Config, Clocks, NewClocks),
 	do_tasks(config(TimeUnit, TickLength, NewExtern),
 		 NewClocks,
-		 [],
-		 Vals,
-		 NewTasks,
-		 []).
-do_tasks(Config, Clocks, Vals, OldVals, [task(Context, Node, Goal) | Rest], QTNT) :-
+		 [],    % new Vals
+		 Vals,  % now OldVals
+		 NewTasks,   % tasks for new tick
+		 []).   % no QTNT
+do_tasks(Config, Clocks, Vals, OldVals,
+	 [task(Context, Node, Goal) | Rest], QTNT) :-
     with_context(Context, reset(Goal, Ball, Continuation)),
     handle_the_ball(Ball,
 		    Config,
@@ -408,7 +410,8 @@ handle_the_ball(    setval(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
-	(   get_the_value(Context, Name, OldVals, _AVal, By),
+	% if we already have it, we have multiple sources
+	(   get_the_value(Context, Name, Vals, _AVal, By),
 	    print_message(error, bt_fatal_error(flow_error(multiple_sources), culprit(Node, Context, Name, By)))
 	;
 	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
@@ -505,6 +508,8 @@ handle_the_ball(    terminate(Node, Context),
 		    Context,
 		    Node,
 		    NewContinuation).
+
+:- meta_predicate with_context(+, 0).
 
 with_context(Context, Goal) :-
 	b_getval(context, OldContext),
@@ -603,6 +608,64 @@ eval(':='(LVAL, RVAL)) :-
 eval('='(LVAL, RVAL)) :-
 	eval_rval(getval, RVAL, Value),
 	shift(setval(LVAL, Value)).
+
+eval_rval(GetFunctor, RVal , Value) :-
+	RVal =.. [F, A, B],
+	eval_rval(GetFunctor, A, AVal),
+	eval_rval(GetFunctor, B, BVal),
+	e(F, AVal, BVal, Value).
+eval_rval(GetFunctor, -A , Value) :-
+	eval_rval(GetFunctor, A, AVal),
+	Value is -AVal.
+eval_rval(GetFunctor, eval(RVal) , Value) :-
+	RVal =.. [F | Args],
+	get_functor_ok(GetFunctor, F),
+	maplist(eval_rval(GetFunctor), Args, ArgVals),
+	do_func(F, ArgVals, Value).
+eval_rval(_, const(Val), Val).
+eval_rval(GetFunctor, var(Name), Val) :-
+	Func =.. [GetFunctor, Name, Val],
+	shift(Func).
+
+get_functor_ok(a,b).  % TODO  WONT WORK WITHOUT THIS!
+
+e( '+', A, B, C) :- C is A + B.
+e( '-', A, B, C) :- C is A - B.
+e( '*', A, B, C) :- C is A * B.
+e( '/', A, B, C) :- C is A / B.
+
+do_func(levy_flight, [LastVal, Lo, Hi], Val) :-
+	map64k(LastVal, Lo, Hi, LastValMapped), % map to range [0-64k)
+	levy_flight(LastValMapped, NewValMapped),
+	map64k(Val, Lo, Hi, NewValMapped).
+do_func(wander, [LastVal, Lo, Hi, Dist], Val) :-
+	Bias is 2 * (LastVal - Lo) / (Hi - Lo) ,
+	random(R),
+	Del is 2 * Dist * R - Dist * Bias,
+	Val is min(Hi, max(Lo, LastVal + Del)).
+
+map64k(N, Lo, Hi, Mapped) :-
+	ground(Mapped),
+	N is Lo + (Hi - Lo) * Mapped / 65536.0 .
+map64k(N, Lo, Hi, Mapped) :-
+	ground(N),
+	Mapped is round((N - Lo) * 65536.0 / (Hi - Lo)).
+
+% compute new mapped value from old mapped value
+levy_flight(LastVal, NewVal) :-
+	random_between(0, 0xf, BitsToFlip),
+	Bit is (1 << BitsToFlip >> 1),
+	levy_flight(LastVal, NewVal, Bit).
+
+levy_flight(V, V, 0).
+levy_flight(LastVal, Val, Bit) :-
+	random_between(0,1, Flip),
+	(   Flip =:= 0
+	->  NewVal is LastVal /\ xor(0xffff , Bit)
+	;   NewVal is LastVal \/ Bit
+	),
+	NewBit = Bit >> 1,
+	levy_flight(NewVal, Val, NewBit).
 
 % note you have to call getval in a loop - make convenience preds for
 % getval and lastval

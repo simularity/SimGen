@@ -28,6 +28,7 @@
 
 :- writeln('after use_module').
 
+
 {|bt||
 wawei ~?
  type_a,
@@ -36,17 +37,18 @@ wawei ~?
 type_a !
  p = 100,
  t = 100;
- p := f_corr(p, 0, 200),
+ p := levy_flight(p, 0, 200),
  t := wander(t, 0, 200, 3),
  speed = 500 - p - t.
 
 type_b !
  p = 100,
  t = 100;
- p := f_corr(p, 0, 200),
+ p := levy_flight(p, 0, 200),
  t := wander(t, 0, 200, 3),
  speed = 500 + clock() - p - t.
 |}.
+
 
 :- writeln('after quasiquote').
 
@@ -75,5 +77,5 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 			 next_context: NN,
 			 add_context_on_tick: NewTick
 		     },
-	start_context(wawei, Extern.next_context, 0, NewExtern).
+	start_context(wawei, Extern.next_context, 0).
 

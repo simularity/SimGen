@@ -15,7 +15,7 @@ license:license(simularity, proprietary,
 
 d(Format, Args) --> {debug(bt, Format, Args)}, [].
 
-bt_dcg(true) --> eos.
+bt_dcg(define_bt([':-'(true)])) --> eos.
 bt_dcg(define_bt([':-'(set_current_bt_module) | BT])) -->
 	d('in bt_dcg', []),
 	bt_(BT).
@@ -215,7 +215,7 @@ rval_args_rest([Arg | Args]) -->
 rval_args_rest([Arg]) --> rval(Arg).
 
 
-function( f_corr, 3).
+function( levy_flight, 3).
 function( wander, 4).
 function( clock, 0).
 
