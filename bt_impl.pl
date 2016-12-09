@@ -160,7 +160,10 @@ tasks to the task queue.
     * qtask(Task)  - Queue the argument to be run in this tick
     * qtnt(Task) - Queue the argument for the next tick
     * end_simulation - stop the simulation
+    * lastval(Name, Val) - bind Val to the last tick
+           vlaue of this variable for this context
     * getval(Name, Val) - bind Val if you can
+           call in a loop
     * setval(Name, Val) - record val
     * getclock(Name, Time) - Name is a Context for context clock
     * terminate(Node, Context) - remove all tasks from qtask and
@@ -208,10 +211,13 @@ do_tasks(Config, Clocks, Vals, _, [], QTNT) :-
 	% no more tasks, move to next tick
 	memberchk(clock(simgen, Time), Clocks),
 	Config = config(TimeUnit, TickLength, Extern),
-	broadcast(tick(Extern, Time, NewExtern)),
+	broadcast_request(tick(Extern, Time, NewExtern)),
 	get_message_tasks(MessageTasks),
 	append(QTNT, MessageTasks, NewTasks),
 	increment_clocks(Config, Clocks, NewClocks),
+	memberchk(clock(simgen, NewTime), Clocks),
+	with_output_to(string(PNewTasks), portray_clause(NewTasks)),
+	debug(bt(ticks, tick), '**** start tick ~w with tasks ~w', [NewTime, PNewTasks]),
 	do_tasks(config(TimeUnit, TickLength, NewExtern),
 		 NewClocks,
 		 [],    % new Vals
@@ -220,6 +226,8 @@ do_tasks(Config, Clocks, Vals, _, [], QTNT) :-
 		 []).   % no QTNT
 do_tasks(Config, Clocks, Vals, OldVals,
 	 [task(Context, Node, Goal) | Rest], QTNT) :-
+    with_output_to(string(PNewTask), portray_clause(task(Context, Node, Goal))),
+    debug(bt(ticks, tasks), 'do task ~w', [PNewTask]),
     with_context(Context, reset(Goal, Ball, Continuation)),
     handle_the_ball(Ball,
 		    Config,
@@ -259,6 +267,19 @@ do_tasks(Config, Clocks, Vals, OldVals,
 %   @arg Continuation the continuation to call to resume processing
 %
 
+% always fail but report what we're handling
+handle_the_ball(    Ball,
+		    _Config,
+		    _Clocks,
+		    _Vals,
+		    _OldVals,
+		    _QTasks,
+		    _QTNT,
+		    Context,
+		    Node,
+		    _Continuation) :-
+    debug(bt(ticks, balls), 'handle ball ~w in context ~w node ~w', [Ball, Context, Node]),
+    fail.
 % I am out of balls for this task
 handle_the_ball(    0,
 		    Config,
@@ -294,7 +315,7 @@ handle_the_ball(    qtask(Task),
 		    Context,
 		    Node,
 		    NewContinuation).
-% Queue a task to continue next tick
+% Queue this task to continue next tick
 handle_the_ball(    next_tick(NodeContext, NodeName),
 		    Config,
 		    Clocks,
@@ -302,22 +323,11 @@ handle_the_ball(    next_tick(NodeContext, NodeName),
 		    OldVals,
 		    QTasks,
 		    QTNT,
-		    Context,
-		    Node,
+		    _Context,
+		    _Node,
 		    Continuation) :-
 	append(QTNT, [task(NodeContext, NodeName, Continuation)], NewQTNT),
-	with_context(Context, reset(Continuation, Ball, NewContinuation)),
-	handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    NewQTNT,
-		    Context,
-		    Node,
-		    NewContinuation).
-
+	do_tasks(Config, Clocks, Vals, OldVals, QTasks, NewQTNT).
 % Queue a task for execution next tick
 handle_the_ball(    qtnt(Task),
 		    Config,
@@ -386,8 +396,11 @@ handle_the_ball(    lastval(Name, Val),
 		    Continuation) :-
 	(   get_the_value(Context, Name, OldVals, Val, _)
 	;   print_message(error,
-		bt_fatal_error(flow_error(no_source_last_cycle), culprit(Node, Context, Name, none)))
+		bt_fatal_error(flow_error(no_source_last_cycle),
+			       culprit(Node, Context, Name, none)))
         ),
+	debug(bt(ticks, vals), 'lastval ~w context ~w value ~w',
+	      [Name, Context, Val]),
 	with_context(Context, reset(Continuation, Ball, NewContinuation)),
 	handle_the_ball(Ball,
 		    Config,
@@ -410,6 +423,8 @@ handle_the_ball(    setval(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
+	debug(bt(ticks, vals), 'setval ~w context ~w value ~w',
+	      [Name, Context, Val]),
 	% if we already have it, we have multiple sources
 	(   get_the_value(Context, Name, Vals, _AVal, By),
 	    print_message(error, bt_fatal_error(flow_error(multiple_sources), culprit(Node, Context, Name, By)))
@@ -604,10 +619,12 @@ eval([H | T]) :-
 	eval(T).
 eval(':='(LVAL, RVAL)) :-
 	eval_rval(lastval, RVAL, Value),
-	shift(setval(LVAL, Value)).
+	shift(setval(LVAL, Value)),
+	debug(bt(flow, vals), 'set value ~w := ~w', [LVAL, Value]).
 eval('='(LVAL, RVAL)) :-
 	eval_rval(getval, RVAL, Value),
-	shift(setval(LVAL, Value)).
+	shift(setval(LVAL, Value)),
+	debug(bt(flow, vals), 'set value ~w = ~w', [LVAL, Value]).
 
 eval_rval(GetFunctor, RVal , Value) :-
 	RVal =.. [F, A, B],
@@ -622,12 +639,23 @@ eval_rval(GetFunctor, eval(RVal) , Value) :-
 	get_functor_ok(GetFunctor, F),
 	maplist(eval_rval(GetFunctor), Args, ArgVals),
 	do_func(F, ArgVals, Value).
+eval_rval(GetFunctor, eval(F), Value) :-
+	atom(F),
+	get_functor_ok(GetFunctor, F),
+	do_func(F, [], Value).
 eval_rval(_, const(Val), Val).
+% we must call GetFunctor in a loop. This is how we do
+% dataflow logic
 eval_rval(GetFunctor, var(Name), Val) :-
 	Func =.. [GetFunctor, Name, Val],
-	shift(Func).
+	shift(Func),
+	(   var(Val)
+	->  eval_rval(GetFunctor, var(Name), Val)
+	;   true
+	).
 
-get_functor_ok(a,b).  % TODO  WONT WORK WITHOUT THIS!
+% TODO make this do somethin
+get_functor_ok(_,_).
 
 e( '+', A, B, C) :- C is A + B.
 e( '-', A, B, C) :- C is A - B.
@@ -643,6 +671,9 @@ do_func(wander, [LastVal, Lo, Hi, Dist], Val) :-
 	random(R),
 	Del is 2 * Dist * R - Dist * Bias,
 	Val is min(Hi, max(Lo, LastVal + Del)).
+do_func(clock, [], Val) :-
+	current_context(Context),
+	shift(getclock(Context, Val)).
 
 map64k(N, Lo, Hi, Mapped) :-
 	ground(Mapped),
@@ -654,7 +685,7 @@ map64k(N, Lo, Hi, Mapped) :-
 % compute new mapped value from old mapped value
 levy_flight(LastVal, NewVal) :-
 	random_between(0, 0xf, BitsToFlip),
-	Bit is (1 << BitsToFlip >> 1),
+	Bit is ((1 << BitsToFlip) >> 1),
 	levy_flight(LastVal, NewVal, Bit).
 
 levy_flight(V, V, 0).
@@ -664,11 +695,7 @@ levy_flight(LastVal, Val, Bit) :-
 	->  NewVal is LastVal /\ xor(0xffff , Bit)
 	;   NewVal is LastVal \/ Bit
 	),
-	NewBit = Bit >> 1,
+	NewBit is Bit >> 1,
 	levy_flight(NewVal, Val, NewBit).
-
-% note you have to call getval in a loop - make convenience preds for
-% getval and lastval
-
 
 % TODO make good messages

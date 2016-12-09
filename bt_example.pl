@@ -53,7 +53,7 @@ type_b !
 :- writeln('after quasiquote').
 
 wawei(N) :-
-	start_simulation(0, 60_000_000_000, 60_000_000_000,
+	start_simulation(0, 60_000_000_000, 1,
 	   extern{
 		  next_context: N,
 		  add_context_on_tick: 0
@@ -64,7 +64,7 @@ wawei(N) :-
 consider_adding_context(Extern, Tick, Extern) :-
 	Extern.add_context_on_tick > Tick,
 	!.
-consider_adding_context(Extern, _, _) :-
+consider_adding_context(Extern, _, Extern) :-
 	Extern.next_context = 0,
 	!,
 	end_simulation.
