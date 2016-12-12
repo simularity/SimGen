@@ -1,4 +1,4 @@
-:- module(bt_example, [wawei/1]).
+:- module(bt_example, [huawei/1]).
 /** <module> Examples that define some test behaviors
  *
  * wawei
@@ -28,9 +28,10 @@
 
 :- writeln('after use_module').
 
+% :- use_bt_module(huawei).
 
 {|bt||
-wawei ~?
+huawei ~?
  type_a,
  type_b.
 
@@ -52,7 +53,9 @@ type_b !
 
 :- writeln('after quasiquote').
 
-wawei(N) :-
+huawei(N) :-
+	open('huawei.csv', write, Stream),
+	nb_setval(huawei_stream, Stream),
 	start_simulation(0, 60_000_000_000, 1,
 	   extern{
 		  next_context: N,
@@ -67,6 +70,8 @@ consider_adding_context(Extern, Tick, Extern) :-
 consider_adding_context(Extern, _, Extern) :-
 	Extern.next_context = 0,
 	!,
+	nb_getval(huawei_stream, Stream),
+	close(Stream),
 	end_simulation.
 consider_adding_context(Extern, Tick, NewExtern) :-
 	Extern.add_context_on_tick =< Tick,
@@ -77,5 +82,13 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 			 next_context: NN,
 			 add_context_on_tick: NewTick
 		     },
-	start_context(wawei, Extern.next_context, 0).
+	start_context(huawei, Extern.next_context, 0).
 
+:- listen(reading(Time, _, Context, Type, Value),
+	  write_event(Time, Context, Type, Value)).
+
+write_event(Time, Context, Type, Value) :-
+	Nanos is Time * 60_000_000_000,
+	nb_getval(huawei_stream, Stream),
+	format(Stream, 'unit,~d,~d,reading,~w,~w~n',
+	       [Context, Nanos, Type, Value]).

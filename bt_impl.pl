@@ -620,10 +620,12 @@ eval([H | T]) :-
 eval(':='(LVAL, RVAL)) :-
 	eval_rval(lastval, RVAL, Value),
 	shift(setval(LVAL, Value)),
+	emit_val(LVAL, Value),
 	debug(bt(flow, vals), 'set value ~w := ~w', [LVAL, Value]).
 eval('='(LVAL, RVAL)) :-
 	eval_rval(getval, RVAL, Value),
 	shift(setval(LVAL, Value)),
+	emit_val(LVAL, Value),
 	debug(bt(flow, vals), 'set value ~w = ~w', [LVAL, Value]).
 
 eval_rval(GetFunctor, RVal , Value) :-
@@ -653,6 +655,12 @@ eval_rval(GetFunctor, var(Name), Val) :-
 	->  eval_rval(GetFunctor, var(Name), Val)
 	;   true
 	).
+
+emit_val(LVAL, Value) :-
+	current_context(Context),
+	shift(getclock(simgen, Time)),
+	shift(getclock(Context, ContextTime)),
+	broadcast(reading(Time, ContextTime, Context, LVAL, Value)).
 
 % TODO make this do somethin
 get_functor_ok(_,_).
