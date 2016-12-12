@@ -1,4 +1,6 @@
-:- module(behavior_tree, [bt/4]).
+:- module(behavior_tree, [bt/4,
+	      use_bt/1
+			 ]).
 :- reexport(bt_impl).
 /** <module> Behavior Trees
  *
@@ -9,8 +11,39 @@
 
 :- quasi_quotation_syntax(behavior_tree:bt).
 
+:- dynamic define_bt/1.  % do I need this? added to deal with .bt files
+
 % for debugging this writes as well, but we have to strip the define_bt
 system:term_expansion(define_bt(X), X) :- write('term expands to:'),portray_clause(X),nl.
+
+		 /*******************************
+		 *          BT file read        *
+		 *******************************/
+
+:- module_transparent use_bt/1.
+
+% TODO - the below resets nodes for behavior_tree module
+% I need to generally clean up where nodes are asserted and
+% how modules work
+%
+use_bt(Path) :-
+%	context_module(Module),
+	reset_nodes_for_module(behavior_tree),
+	absolute_file_name(Path, File),
+	atom_concat(File, '.bt', AbsPath),
+	phrase_from_file(behavior_tree_syntax:bt_dcg(Result), AbsPath, []),
+	define_bt(List) = Result,
+	call_all(List).
+
+call_all([]).
+call_all([ ':-'(Term) | Tail]) :-
+	call(Term),
+	call_all(Tail).
+
+		 /*******************************
+		 *	     Quasiquoter        *
+		 *******************************/
+
 
 %!	bt(Content, SyntaxArgs, VariableNames, Result) is det
 %

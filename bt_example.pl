@@ -26,10 +26,10 @@
  */
 :- use_module(behavior_tree).
 
+:- use_bt(huawei).
 :- writeln('after use_module').
 
-% :- use_bt_module(huawei).
-
+/* no quasiquotes til I have time to wrassle with them
 {|bt||
 huawei ~?
  type_a,
@@ -49,7 +49,7 @@ type_b !
  t := wander(t, 0, 200, 3),
  speed = 500 + clock() - p - t.
 |}.
-
+*/
 
 :- writeln('after quasiquote').
 
