@@ -1,4 +1,5 @@
-:- module(behavior_tree_syntax, [bt_dcg//1]).
+:- module(behavior_tree_syntax, [bt_dcg//1,
+				my_print_message/2]).
 /** <module> Concrete syntax parser for behavior trees
 
 */
@@ -12,6 +13,9 @@ license:license(simularity, proprietary,
 :- license(simularity).
 
 :- use_module(library(dcg/basics)).
+
+my_print_message(Type, Err) :-
+	format('This ~w thing happened. ~w~n', [Type, Err]).
 
 d(Format, Args) --> {debug(bt, Format, Args)}, [].
 
@@ -45,11 +49,43 @@ bt_error -->
 	  line_count(current_input, Line),
 	  line_position(current_input, Pos),
 	  source_file(File),
-	  print_message(error, error(syntax_error(AC),
+	  my_print_message(error, error(syntax_error(AC),
 				     context(err(AC:Line:Pos:File))))
 	}.
 
 ws --> blanks.
+ws --> blanks, comment, ws.
+% allow prolog style comments
+comment -->
+	"%",
+	string_without("\n", Body),
+	"\n",
+	d('{{{%~s}}}~n', [Body]).
+
+% allow C style comments
+comment -->
+	"/*",
+	c_body(Body),
+	d('{{{/*~s*/}}}~n', [Body]).
+
+c_body([C|T]) -->
+	[C],
+	{ C \= 0'* },
+	c_body(T).
+c_body([]) -->
+	"*/".
+c_body([ 0'*, C | T]) -->
+	"*",
+	[C],
+	{ C \= 0'/ },
+	c_body(T).
+
+... --> [].
+... --> [_], ... .
+
+...([]) --> [].
+...([X|T]) --> [X], ...(T) .
+
 
 bt_statement(':-'(def_node(Head, Operator, Args, Children))) -->
 	ws,
@@ -71,11 +107,15 @@ bt_operator( '!' ) --> "!".     % continuous action
 
 bt_args( ~? , Args, Children) --> prob_list(Args, Children).
 bt_args( '!', [FirstTicks, RestTicks], []) -->
+	d('in bt_args', []),
 	continuous_calc_list(FirstTicks),
+	d('Firstticks ~w', [FirstTicks]),
 	ws,
 	";",
 	ws,
-	continuous_calc_list(RestTicks).
+	d('pre RestTicks', []),
+	continuous_calc_list(RestTicks),
+	d('got RestTicks ~w', [RestTicks]).
 
 prob_list([Prob | Probs], [Child | Children]) -->
 	prob(Prob, Child),

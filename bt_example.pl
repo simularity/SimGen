@@ -26,9 +26,6 @@
  */
 :- use_module(behavior_tree).
 
-:- use_bt(huawei).
-:- writeln('after use_module').
-
 /* no quasiquotes til I have time to wrassle with them
 {|bt||
 huawei ~?
@@ -53,7 +50,10 @@ type_b !
 
 :- writeln('after quasiquote').
 
+% :- use_bt(huawei2).
+
 huawei(N) :-
+	use_bt(huawei2),
 	open('huawei.csv', write, Stream),
 	nb_setval(huawei_stream, Stream),
 	start_simulation(0, 60_000_000_000, 1,
@@ -82,7 +82,7 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 			 next_context: NN,
 			 add_context_on_tick: NewTick
 		     },
-	start_context(huawei, Extern.next_context, 0).
+	start_context(huawei2, Extern.next_context, 0).
 
 :- listen(reading(Time, _, Context, Type, Value),
 	  write_event(Time, Context, Type, Value)).

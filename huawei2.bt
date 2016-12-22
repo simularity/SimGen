@@ -1,0 +1,27 @@
+/*
+    Example that generates 50:50 mix of type a and b,
+    type b steadily increase after start, and both move with p and t
+*/
+% the root node
+huawei ~?  % a probabilistic selector
+ type_a,
+ type_b.
+
+/*
+   An action node.
+   Everything up to the ; is done on tick 1,
+   everythign after on each subsequent tick
+*/
+type_a !
+ p = 100,    /* used = because we don't have a previous tick */
+ t = 100;
+ p := levy_flight(p, 0, 200),
+ t := wander(t, 0, 200, 3),
+ speed = 500 - p - t.
+
+type_b !
+ p = 100,
+ t = 100;
+ p := levy_flight(p, 0, 200),
+ t := wander(t, 0, 200, 3),
+ speed = 500 + clock() - p - t.
