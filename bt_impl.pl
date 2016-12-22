@@ -412,6 +412,35 @@ handle_the_ball(    lastval(Name, Val),
 		    Context,
 		    Node,
 		    NewContinuation).
+% like lastval, but doesn't freak out, just returns '$not_avail$' if
+% value isn't available
+handle_the_ball(    ezval(Name, Val),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	(   get_the_value(Context, Name, OldVals, Val, _)
+	;   Val = '$not_avail$'
+        ),
+	debug(bt(ticks, vals), 'ezval ~w context ~w value ~w',
+	      [Name, Context, Val]),
+	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+
 % Set the value
 handle_the_ball(    setval(Name, Val),
 		    Config,
@@ -456,7 +485,7 @@ handle_the_ball(    getclock(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
-	(   member(clock(Name, Val), Clocks)
+	(   member(clock(Name, Val), Clocks), !
 	;
 	    print_message(error, bt_fatal_error(flow_error(no_clock), culprit(Node, Context, Name)))
 	),
@@ -582,19 +611,20 @@ run_node(~? , Args, Children) :-
 	sum_list(Args, Total),
 	Select is random_float * Total,
 	run_random(Select, Args, Children).
-run_node('!' , [FirstTick, OtherTicks], _) :-
+run_node('!' , [FirstTick, OtherTicks, Conds], _) :-
 	eval(FirstTick),
 	current_context(Context),
 	current_node(Node),
 	shift(next_tick(Context, Node)),
-	more_eval(OtherTicks).
+	more_eval(OtherTicks, Conds).
 
-more_eval(Statements) :-
+more_eval(Statements, Conds) :-
 	eval(Statements),
+	conds(Conds),  % first tick always succeeds so do it here
 	current_context(Context),
 	current_node(Node),
 	shift(next_tick(Context, Node)),
-	more_eval(Statements).
+	more_eval(Statements, Conds).
 
 run_random(_Select, _, [Child]) :-
 	run_node(Child).
@@ -627,6 +657,25 @@ eval('='(LVAL, RVAL)) :-
 	shift(setval(LVAL, Value)),
 	emit_val(LVAL, Value),
 	debug(bt(flow, vals), 'set value ~w = ~w', [LVAL, Value]).
+
+% TODO tomorrow fix bug with not being happy by making a new get functor
+% ezval, that does lastval if avail or a special const if not
+%
+conds([]).
+conds([H | T]) :-
+	H =.. [CompareOp, Left, Right],
+	eval_rval(ezval, Left, LeftVal),
+        eval_rval(ezval, Right, RightVal),
+        Compo =.. [CompareOp, LeftVal, RightVal],
+	call_if_avail(Compo, LeftVal, RightVal),
+	conds(T).
+
+call_if_avail(_, '$not_avail$', _).
+call_if_avail(_, _, '$not_avail$').
+call_if_avail(Goal, A, B) :-
+	A \= '$not_avail$',
+	B \= '$not_avail$',
+	call(Goal).
 
 eval_rval(GetFunctor, RVal , Value) :-
 	RVal =.. [F, A, B],
@@ -681,6 +730,7 @@ do_func(wander, [LastVal, Lo, Hi, Dist], Val) :-
 	Val is min(Hi, max(Lo, LastVal + Del)).
 do_func(clock, [], Val) :-
 	current_context(Context),
+	debug(bt(flow,clock), 'function clock(~w)', [Context]),
 	shift(getclock(Context, Val)).
 
 map64k(N, Lo, Hi, Mapped) :-

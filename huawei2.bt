@@ -3,7 +3,7 @@
     type b steadily increase after start, and both move with p and t
 */
 % the root node
-huawei ~?  % a probabilistic selector
+huawei2 ~?  % a probabilistic selector
  type_a,
  type_b.
 
@@ -14,14 +14,29 @@ huawei ~?  % a probabilistic selector
 */
 type_a !
  p = 100,    /* used = because we don't have a previous tick */
- t = 100;
+ t = 100
+;
  p := levy_flight(p, 0, 200),
  t := wander(t, 0, 200, 3),
- speed = 500 - p - t.
+ speed = 500 - p - t
+;
+ p > 20,
+ t > 20,
+ p < 180,
+ t < 180,
+ clock() < 25.
 
 type_b !
  p = 100,
- t = 100;
- p := levy_flight(p, 0, 200),
- t := wander(t, 0, 200, 3),
- speed = 500 + clock() - p - t.
+ t = 100
+;
+ p := levy_flight(p, 0, 200),   % end of line comment
+ t := wander(t, 0, 200, /* stuff in here */  3),
+ speed = 500 + clock() - p - t
+;
+ p > 20,
+ t > 20,
+ p < 180,
+ t < 180,
+ clock() < 25.
+

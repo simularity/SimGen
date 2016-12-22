@@ -106,7 +106,7 @@ bt_operator( ~? ) --> "~?".     % random selector
 bt_operator( '!' ) --> "!".     % continuous action
 
 bt_args( ~? , Args, Children) --> prob_list(Args, Children).
-bt_args( '!', [FirstTicks, RestTicks], []) -->
+bt_args( '!', [FirstTicks, RestTicks, Conds], []) -->
 	d('in bt_args', []),
 	continuous_calc_list(FirstTicks),
 	d('Firstticks ~w', [FirstTicks]),
@@ -115,7 +115,13 @@ bt_args( '!', [FirstTicks, RestTicks], []) -->
 	ws,
 	d('pre RestTicks', []),
 	continuous_calc_list(RestTicks),
-	d('got RestTicks ~w', [RestTicks]).
+	d('got RestTicks ~w', [RestTicks]),
+	ws,
+	";",
+	ws,
+	d('pre conds', []),
+	conds(Conds),
+	d('conds ~w', [Conds]).
 
 prob_list([Prob | Probs], [Child | Children]) -->
 	prob(Prob, Child),
@@ -161,6 +167,34 @@ statement('='(LVal, RVal)) -->
 	"=",
 	ws,
 	rval(RVal).
+
+conds([Cond | Rest]) -->
+	cond(Cond),
+	ws,
+	",",
+	ws,
+	conds(Rest).
+conds([Cond]) -->
+	cond(Cond).
+conds([]) --> ws.
+
+cond(Cond) -->
+	ws,
+	rval(Left),
+	ws,
+	cond_op(Op),
+	ws,
+	rval(Right),
+	{ Cond =.. [Op, Left, Right] }.
+
+cond_op( = ) --> "=".
+cond_op( = ) --> "==".
+cond_op( < ) --> "<".
+cond_op( > ) --> ">".
+cond_op( =< ) --> "<=".
+cond_op( =< ) --> "=<".
+cond_op( >= ) --> ">=".
+cond_op( >= ) --> "=>".
 
 bt_op(20, '+' ) --> "+".
 bt_op(20, '-' ) --> "-".
