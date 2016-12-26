@@ -553,7 +553,7 @@ handle_the_ball(    terminate(Node, Context),
 		    Node,
 		    NewContinuation).
 
-:- meta_predicate with_context(+, 0).
+:- meta_predicate with_context(+, 0), with_node(+, 0), with_events(0).
 
 with_context(Context, Goal) :-
 	b_getval(context, OldContext),
@@ -569,6 +569,23 @@ with_node(Node, Goal) :-
 	b_setval(current_node, Node),
 	call(Goal),
 	b_setval(current_node, OldNode).
+
+% this isn't working, I'm not sure why
+% the call was in run_node
+with_events(Goal) :-
+	call(Goal).
+	/*
+	current_context(Context),
+	shift(getclock(simgen, Time)),
+	shift(getclock(Context, ContextTime)),
+	b_getval(current_node, Node),
+	broadcast(text(Time, ContextTime, Context, Node, start)),
+	(   call(Goal)
+	->   Result = succeed
+	;    Result = fail
+	),
+	gtrace,
+	broadcast(text(Time, ContextTime, Context, Node, Result)). */
 
 current_node(Node) :-
 	b_getval(current_node, Node).
@@ -625,6 +642,13 @@ more_eval(Statements, Conds) :-
 	current_node(Node),
 	shift(next_tick(Context, Node)),
 	more_eval(Statements, Conds).
+more_eval(_, _) :-
+	current_context(Context),
+	current_node(Node),
+	debug(bt(ticks, val),
+	      'condition failed node ~w context ~w',
+	      [Node, Context]),
+	!, fail.
 
 run_random(_Select, _, [Child]) :-
 	run_node(Child).

@@ -34,9 +34,9 @@ type_b !
  t := wander(t, 0, 200, /* stuff in here */  3),
  speed = 500 + clock() - p - t
 ;
- p > 20,
- t > 20,
- p < 180,
- t < 180,
+ p > 80,
+ t > 80,
+ p < 120,
+ t < 120,
  clock() < 25.
 
