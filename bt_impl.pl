@@ -570,22 +570,32 @@ with_node(Node, Goal) :-
 	call(Goal),
 	b_setval(current_node, OldNode).
 
-% this isn't working, I'm not sure why
-% the call was in run_node
+% this isn't working
+% because we never return from the call
+% probably because cond is never failing
 with_events(Goal) :-
-	call(Goal).
+	debug(bt(ticks, events), 'goal is ~w', [Goal]),
 	/*
 	current_context(Context),
 	shift(getclock(simgen, Time)),
 	shift(getclock(Context, ContextTime)),
 	b_getval(current_node, Node),
+	debug(bt(ticks,  events), 'start(~w, ~w, ~w, ~w, ~w)',
+	      [Time, ContextTime, Context, Node, start]),
 	broadcast(text(Time, ContextTime, Context, Node, start)),
+	*/
 	(   call(Goal)
 	->   Result = succeed
 	;    Result = fail
 	),
-	gtrace,
-	broadcast(text(Time, ContextTime, Context, Node, Result)). */
+	debug(bt(ticks,  events), 'text(~w, ~w, ~w, ~w, ~w)',
+	      [Time, ContextTime, Context, Node, Result]),
+%	broadcast(text(Time, ContextTime, Context, Node, Result)),
+        (   Result = succeed
+	->  true
+	;   fail
+	).
+
 
 current_node(Node) :-
 	b_getval(current_node, Node).
@@ -618,7 +628,7 @@ start_context_clock(Context, Time) :-
 
 run_node(Context, Node) :-
 	node_(_M, Node, Op, Args, Children),
-	with_context(Context, with_node(Node, run_node(Op, Args, Children))).
+	with_context(Context, with_node(Node, with_events(run_node(Op, Args, Children)))).
 
 run_node(Node) :-
 	current_context(Context),
@@ -635,6 +645,14 @@ run_node('!' , [FirstTick, OtherTicks, Conds], _) :-
 	shift(next_tick(Context, Node)),
 	more_eval(OtherTicks, Conds).
 
+% BUG - somehow this keeps going if conds fails
+%
+% DEBUG
+more_eval(Statements, Conds) :-
+	shift(getclock(simgen, Clock)),
+	debug(bt(ticks, val), 'at time ~w more_eval(~w, ~w)', [Clock,
+		   Statements, Conds]),
+	fail.
 more_eval(Statements, Conds) :-
 	eval(Statements),
 	conds(Conds),  % first tick always succeeds so do it here
@@ -685,14 +703,20 @@ eval('='(LVAL, RVAL)) :-
 % TODO tomorrow fix bug with not being happy by making a new get functor
 % ezval, that does lastval if avail or a special const if not
 %
-conds([]).
-conds([H | T]) :-
+conds(X) :- once(conds_(X)).
+conds_([]).
+conds_([H | T]) :-
 	H =.. [CompareOp, Left, Right],
 	eval_rval(ezval, Left, LeftVal),
         eval_rval(ezval, Right, RightVal),
         Compo =.. [CompareOp, LeftVal, RightVal],
 	call_if_avail(Compo, LeftVal, RightVal),
+	debug(bt(ticks, cond), 'cond ~w ~w ~w passed', [CompareOp, LeftVal, RightVal]),
 	conds(T).
+conds_([H | _]) :-
+	debug(bt(ticks, cond), 'cond ~w failed', [H]),
+	fail.
+
 
 call_if_avail(_, '$not_avail$', _).
 call_if_avail(_, _, '$not_avail$').
