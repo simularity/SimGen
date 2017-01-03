@@ -36,6 +36,9 @@ use_bt(Path) :-
 	call_all(List).
 
 call_all([]).
+call_all([Unbound | Tail]) :-
+	\+ ground(Unbound),
+	call_all(Tail).
 call_all([ ':-'(Term) | Tail]) :-
 	call(Term),
 	call_all(Tail).
@@ -59,7 +62,7 @@ bt_(Content, _SyntaxArgs, _VariableNames, Result) :-
     catch(
        phrase_from_quasi_quotation(bt_dcg(Result), Content),
 	Catcher,
-	(   print_message(error, error(bt_syntax_error(parser_failed, Catcher))),
+	(   my_print_message(error, error(bt_syntax_error(parser_failed, Catcher))),
 	    Result= define_bt([':-'(true)])
 	)
     ),

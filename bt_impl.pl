@@ -412,6 +412,35 @@ handle_the_ball(    lastval(Name, Val),
 		    Context,
 		    Node,
 		    NewContinuation).
+% like lastval, but doesn't freak out, just returns '$not_avail$' if
+% value isn't available
+handle_the_ball(    ezval(Name, Val),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	(   get_the_value(Context, Name, OldVals, Val, _)
+	;   Val = '$not_avail$'
+        ),
+	debug(bt(ticks, vals), 'ezval ~w context ~w value ~w',
+	      [Name, Context, Val]),
+	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+
 % Set the value
 handle_the_ball(    setval(Name, Val),
 		    Config,
@@ -456,7 +485,7 @@ handle_the_ball(    getclock(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
-	(   member(clock(Name, Val), Clocks)
+	(   member(clock(Name, Val), Clocks), !
 	;
 	    print_message(error, bt_fatal_error(flow_error(no_clock), culprit(Node, Context, Name)))
 	),
@@ -464,7 +493,7 @@ handle_the_ball(    getclock(Name, Val),
         handle_the_ball(Ball,
 		    Config,
 		    Clocks,
-		    [val(Name, Context, Node, Val) | Vals],
+		    Vals,
 		    OldVals,
 		    QTasks,
 		    QTNT,
@@ -524,7 +553,7 @@ handle_the_ball(    terminate(Node, Context),
 		    Node,
 		    NewContinuation).
 
-:- meta_predicate with_context(+, 0).
+:- meta_predicate with_context(+, 0), with_node(+, 0), with_events(0).
 
 with_context(Context, Goal) :-
 	b_getval(context, OldContext),
@@ -540,6 +569,33 @@ with_node(Node, Goal) :-
 	b_setval(current_node, Node),
 	call(Goal),
 	b_setval(current_node, OldNode).
+
+% this isn't working
+% because we never return from the call
+% probably because cond is never failing
+with_events(Goal) :-
+	debug(bt(ticks, events), 'goal is ~w', [Goal]),
+	/*
+	current_context(Context),
+	shift(getclock(simgen, Time)),
+	shift(getclock(Context, ContextTime)),
+	b_getval(current_node, Node),
+	debug(bt(ticks,  events), 'start(~w, ~w, ~w, ~w, ~w)',
+	      [Time, ContextTime, Context, Node, start]),
+	broadcast(text(Time, ContextTime, Context, Node, start)),
+	*/
+	(   call(Goal)
+	->   Result = succeed
+	;    Result = fail
+	),
+	debug(bt(ticks,  events), 'text(~w, ~w, ~w, ~w, ~w)',
+	      [Time, ContextTime, Context, Node, Result]),
+%	broadcast(text(Time, ContextTime, Context, Node, Result)),
+        (   Result = succeed
+	->  true
+	;   fail
+	).
+
 
 current_node(Node) :-
 	b_getval(current_node, Node).
@@ -572,7 +628,7 @@ start_context_clock(Context, Time) :-
 
 run_node(Context, Node) :-
 	node_(_M, Node, Op, Args, Children),
-	with_context(Context, with_node(Node, run_node(Op, Args, Children))).
+	with_context(Context, with_node(Node, with_events(run_node(Op, Args, Children)))).
 
 run_node(Node) :-
 	current_context(Context),
@@ -582,19 +638,35 @@ run_node(~? , Args, Children) :-
 	sum_list(Args, Total),
 	Select is random_float * Total,
 	run_random(Select, Args, Children).
-run_node('!' , [FirstTick, OtherTicks], _) :-
+run_node('!' , [FirstTick, OtherTicks, Conds], _) :-
 	eval(FirstTick),
 	current_context(Context),
 	current_node(Node),
 	shift(next_tick(Context, Node)),
-	more_eval(OtherTicks).
+	more_eval(OtherTicks, Conds).
 
-more_eval(Statements) :-
+% BUG - somehow this keeps going if conds fails
+%
+% DEBUG
+more_eval(Statements, Conds) :-
+	shift(getclock(simgen, Clock)),
+	debug(bt(ticks, val), 'at time ~w more_eval(~w, ~w)', [Clock,
+		   Statements, Conds]),
+	fail.
+more_eval(Statements, Conds) :-
 	eval(Statements),
+	conds(Conds),  % first tick always succeeds so do it here
 	current_context(Context),
 	current_node(Node),
 	shift(next_tick(Context, Node)),
-	more_eval(Statements).
+	more_eval(Statements, Conds).
+more_eval(_, _) :-
+	current_context(Context),
+	current_node(Node),
+	debug(bt(ticks, val),
+	      'condition failed node ~w context ~w',
+	      [Node, Context]),
+	!, fail.
 
 run_random(_Select, _, [Child]) :-
 	run_node(Child).
@@ -627,6 +699,31 @@ eval('='(LVAL, RVAL)) :-
 	shift(setval(LVAL, Value)),
 	emit_val(LVAL, Value),
 	debug(bt(flow, vals), 'set value ~w = ~w', [LVAL, Value]).
+
+% TODO tomorrow fix bug with not being happy by making a new get functor
+% ezval, that does lastval if avail or a special const if not
+%
+conds(X) :- once(conds_(X)).
+conds_([]).
+conds_([H | T]) :-
+	H =.. [CompareOp, Left, Right],
+	eval_rval(ezval, Left, LeftVal),
+        eval_rval(ezval, Right, RightVal),
+        Compo =.. [CompareOp, LeftVal, RightVal],
+	call_if_avail(Compo, LeftVal, RightVal),
+	debug(bt(ticks, cond), 'cond ~w ~w ~w passed', [CompareOp, LeftVal, RightVal]),
+	conds(T).
+conds_([H | _]) :-
+	debug(bt(ticks, cond), 'cond ~w failed', [H]),
+	fail.
+
+
+call_if_avail(_, '$not_avail$', _).
+call_if_avail(_, _, '$not_avail$').
+call_if_avail(Goal, A, B) :-
+	A \= '$not_avail$',
+	B \= '$not_avail$',
+	call(Goal).
 
 eval_rval(GetFunctor, RVal , Value) :-
 	RVal =.. [F, A, B],
@@ -681,6 +778,7 @@ do_func(wander, [LastVal, Lo, Hi, Dist], Val) :-
 	Val is min(Hi, max(Lo, LastVal + Del)).
 do_func(clock, [], Val) :-
 	current_context(Context),
+	debug(bt(flow,clock), 'function clock(~w)', [Context]),
 	shift(getclock(Context, Val)).
 
 map64k(N, Lo, Hi, Mapped) :-
