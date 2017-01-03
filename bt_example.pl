@@ -1,7 +1,7 @@
 :- module(bt_example, [huawei/1]).
 /** <module> Examples that define some test behaviors
  *
- * wawei
+ * huawe
  *
  * Each context is one of two types.
  *
