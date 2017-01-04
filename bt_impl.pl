@@ -192,6 +192,24 @@ do_tick and do_task mutually recursive? No - have do_task that gets
 		  ),
 		  message_queue_create(_, [alias(simgen)]).
 
+:- meta_predicate det_reset_in_context(+, 0, -, -),
+	det_reset(0, -, -).
+
+%!	det_reset_in_context(+Context:atom, +Goal:goal, -Ball:term,
+%!          -Continuation:continuation) is det
+%
+%	set the context and do a reset, but if Goal fails,
+%	return 0's anyway
+%
+det_reset_in_context(Context, Goal, Ball, Continuation) :-
+	with_context(Context, det_reset(Goal, Ball, Continuation)).
+
+det_reset(Goal, Ball, Continuation) :-
+	(   reset(Goal, Ball, Continuation)
+	->  true
+	;   Ball = 0,
+	    Continuation = 0
+	).
 
 %!	do_tasks(+Config:term, +Clocks:list, +Vals:list,
 %!	+OldVals:list, +QTasks:list, +QTNT:list) is det
@@ -228,7 +246,7 @@ do_tasks(Config, Clocks, Vals, OldVals,
 	 [task(Context, Node, Goal) | Rest], QTNT) :-
     with_output_to(string(PNewTask), portray_clause(task(Context, Node, Goal))),
     debug(bt(ticks, tasks), 'do task ~w', [PNewTask]),
-    with_context(Context, reset(Goal, Ball, Continuation)),
+    det_reset_in_context(Context, Goal, Ball, Continuation),
     handle_the_ball(Ball,
 		    Config,
 		    Clocks,
@@ -304,7 +322,7 @@ handle_the_ball(    qtask(Task),
 		    Node,
 		    Continuation) :-
 	append(QTasks, [Task], NewTasks),
-	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	with_context(Context, reset(ignore(Continuation), Ball, NewContinuation)),
 	handle_the_ball(Ball,
 		    Config,
 		    Clocks,
@@ -339,7 +357,7 @@ handle_the_ball(    qtnt(Task),
 		    Context,
 		    Node,
 		    Continuation) :-
-	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	with_context(Context, reset(ignore(Continuation), Ball, NewContinuation)),
 	handle_the_ball(Ball,
 		    Config,
 		    Clocks,
@@ -367,7 +385,7 @@ handle_the_ball(    getval(Name, Val),
 		    Node,
 		    Continuation) :-
 	(   get_the_value(Context, Name, Vals, Val, _),
-	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	    det_reset_in_context(Context, Continuation, Ball, NewContinuation),
 	    handle_the_ball(Ball,
 		    Config,
 		    Clocks,
@@ -401,7 +419,7 @@ handle_the_ball(    lastval(Name, Val),
         ),
 	debug(bt(ticks, vals), 'lastval ~w context ~w value ~w',
 	      [Name, Context, Val]),
-	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
 	handle_the_ball(Ball,
 		    Config,
 		    Clocks,
@@ -424,12 +442,14 @@ handle_the_ball(    ezval(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
+	gtrace,
 	(   get_the_value(Context, Name, OldVals, Val, _)
-	;   Val = '$not_avail$'
+	;   get_the_value(Context, Name, Vals, Val, _)
+	;   Val = '$not_avail$', gtrace
         ),
 	debug(bt(ticks, vals), 'ezval ~w context ~w value ~w',
 	      [Name, Context, Val]),
-	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
 	handle_the_ball(Ball,
 		    Config,
 		    Clocks,
@@ -458,7 +478,7 @@ handle_the_ball(    setval(Name, Val),
 	(   get_the_value(Context, Name, Vals, _AVal, By),
 	    print_message(error, bt_fatal_error(flow_error(multiple_sources), culprit(Node, Context, Name, By)))
 	;
-	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	    det_reset_in_context(Context, Continuation, Ball, NewContinuation),
 	    handle_the_ball(Ball,
 		    Config,
 		    Clocks,
@@ -489,7 +509,7 @@ handle_the_ball(    getclock(Name, Val),
 	;
 	    print_message(error, bt_fatal_error(flow_error(no_clock), culprit(Node, Context, Name)))
 	),
-	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
         handle_the_ball(Ball,
 		    Config,
 		    Clocks,
@@ -515,7 +535,7 @@ handle_the_ball(    newclock(Name, Time),
 	;
 	   true
 	),
-	with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
         handle_the_ball(Ball,
 		    Config,
 		    [clock(Name, Time) | Clocks],
@@ -539,7 +559,7 @@ handle_the_ball(    terminate(Node, Context),
 		    Context,
 		    Node,
 		    Continuation) :-
-	    with_context(Context, reset(Continuation, Ball, NewContinuation)),
+	    det_reset_in_context(Context, Continuation, Ball, NewContinuation),
 	    select(task(Context, Node, _), QTasks, NewQTasks),
 	    select(task(Context, Node, _), QTNT, NewQTNT),
 	    handle_the_ball(Ball,
@@ -628,7 +648,18 @@ start_context_clock(Context, Time) :-
 
 run_node(Context, Node) :-
 	node_(_M, Node, Op, Args, Children),
-	with_context(Context, with_node(Node, with_events(run_node(Op, Args, Children)))).
+	debug(bt(nodes, start_stop), 'node ~w starts', [Node]),
+	(   with_context(Context, with_node(Node, with_events(run_node(Op, Args, Children))))
+	->   Result = true
+	;    Result = fail
+	),
+	(   Result = true
+	->  debug(bt(nodes, start_stop), 'node ~w succeeds', [Node])
+	;   debug(bt(nodes, start_stop), 'node ~w fails', [Node])
+	),
+	(   Result = true
+	->  true
+	;   fail).
 
 run_node(Node) :-
 	current_context(Context),
@@ -700,15 +731,13 @@ eval('='(LVAL, RVAL)) :-
 	emit_val(LVAL, Value),
 	debug(bt(flow, vals), 'set value ~w = ~w', [LVAL, Value]).
 
-% TODO tomorrow fix bug with not being happy by making a new get functor
-% ezval, that does lastval if avail or a special const if not
-%
 conds(X) :- once(conds_(X)).
 conds_([]).
 conds_([H | T]) :-
 	H =.. [CompareOp, Left, Right],
 	eval_rval(ezval, Left, LeftVal),
         eval_rval(ezval, Right, RightVal),
+	!,
         Compo =.. [CompareOp, LeftVal, RightVal],
 	call_if_avail(Compo, LeftVal, RightVal),
 	debug(bt(ticks, cond), 'cond ~w ~w ~w passed', [CompareOp, LeftVal, RightVal]),
@@ -716,7 +745,6 @@ conds_([H | T]) :-
 conds_([H | _]) :-
 	debug(bt(ticks, cond), 'cond ~w failed', [H]),
 	fail.
-
 
 call_if_avail(_, '$not_avail$', _).
 call_if_avail(_, _, '$not_avail$').

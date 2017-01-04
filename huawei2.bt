@@ -3,7 +3,7 @@
     type b steadily increase after start, and both move with p and t
 */
 % the root node
-huawei2 ~?  % a probabilistic selector
+root ~?  % a probabilistic selector
  type_a,
  type_b.
 
