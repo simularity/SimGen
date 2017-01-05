@@ -11,17 +11,20 @@ p :-
 	writeln(p_f).
 p :-
 	writeln(p_g),
-	q,
+	call(q),
 	writeln(p_h).
 
 q :-
 	writeln(q_a),
 	shift(foo(X)),
 	writeln(X),
-	shift(bar(Y)), % wrong because were not in reset
+	shift(bar(Y)),
 	writeln(Y).
 
 
 
 % hey annie, are you not calling a continuation you're given?
 %
+
+
+% try metapredicates
