@@ -214,10 +214,11 @@ det_reset_in_context(Context, Goal, Ball, Continuation) :-
 
 det_reset(Goal, Ball, Continuation) :-
 	(   reset(Goal, Ball, Continuation)
-	->  true
+%	->  true
 	;   Ball = 0,
 	    Continuation = 0
 	).
+
 
 %!	do_tasks(+Config:term, +Clocks:list, +Vals:list,
 %!	+OldVals:list, +QTasks:list, +QTNT:list) is det
@@ -330,6 +331,7 @@ handle_the_ball(    qtask(Task),
 		    Node,
 		    Continuation) :-
 	append(QTasks, [Task], NewTasks),
+        % TODO this is really suspicious
 	with_context(Context, reset(ignore(Continuation), Ball, NewContinuation)),
 	handle_the_ball(Ball,
 		    Config,
@@ -512,6 +514,7 @@ handle_the_ball(    getclock(Name, Val),
 		    Context,
 		    Node,
 		    Continuation) :-
+    debug(bt(ball, clock), 'getclock ~w ~w', [getclock(Name, Val), Clocks]),
 	(   member(clock(Name, Val), Clocks), !
 	;
 	    print_message(error, bt_fatal_error(flow_error(no_clock), culprit(Node, Context, Name)))
@@ -674,7 +677,6 @@ run_node(~? , Args, Children) :-
 	Select is random_float * Total,
 	run_random(Select, Args, Children).
 run_node('!' , [FirstTick, OtherTicks, Conds], _) :-
-	gtrace,
 	eval(FirstTick),
 	current_context(Context),
 	current_node(Node),
@@ -685,32 +687,53 @@ run_node('!' , [FirstTick, OtherTicks, Conds], _) :-
 	% The continuation is 'rest of this clause' not
 	% 'continuation sandwich', I think, so I need to
 	% expand all the with_ things!!!
+
+        % wrong wrong wrong.
+        % your problem is that more_eval is failing in the wrong place.
 	debug(bt(ticks, next_tick), 'Context ~w node ~w resumes at next tick',
 	      [Context, Node]),
-	more_eval(OtherTicks, Conds).
+	more_eval(OtherTicks, Conds),
+        debug(bt(more_eval), 'more_eval succeeds in run_node', []).
 
 % BUG - more_eval isn't failing or succeeding, it's
-% just not
+% just not finishing
+%
+% We are seeing clause1, but not clause2
+%
+% Why???????    =8cO
 %
 % DEBUG
+/* I'm baffled why this should change the behavior
+it only does so if you call the shift! */
 more_eval(Statements, Conds) :-
+        debug(bt(more_eval), 'clause1 a entry', []),
 	shift(getclock(simgen, Clock)),
+        debug(bt(more_eval), 'clause1 b gotclock', []),
 	debug(bt(ticks, val), 'at time ~w more_eval(~w, ~w)', [Clock,
 		   Statements, Conds]),
 	fail.
 more_eval(Statements, Conds) :-
+        debug(bt(more_eval), 'clause2 a entry', []),
 	eval(Statements),
+        debug(bt(more_eval), 'clause2 b evaled statements', []),
 	conds(Conds),  % first tick always succeeds so do it here
+        debug(bt(more_eval), 'clause2 c conds succeeded', []),
 	current_context(Context),
 	current_node(Node),
+        debug(bt(more_eval), 'clause2 e got context and node', []),
 	shift(next_tick(Context, Node)),
-	more_eval(Statements, Conds).
+        debug(bt(more_eval), 'clause2 f back for the new tick', []),
+	more_eval(Statements, Conds),
+        debug(bt(more_eval), 'clause2 g the tail succeeded', []).
 more_eval(_, _) :-
+        debug(bt(more_eval), 'clause3 a entry', []),
 	current_context(Context),
 	current_node(Node),
+        debug(bt(more_eval), 'clause3 b got context and node', []),
 	debug(bt(ticks, val),
 	      'condition failed node ~w context ~w',
 	      [Node, Context]),
+        debug(bt(more_eval), 'clause3 c I will now cut fail', []),
 	!, fail.
 
 run_random(_Select, _, [Child]) :-
