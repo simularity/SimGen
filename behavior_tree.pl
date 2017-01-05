@@ -79,6 +79,7 @@ user:message_hook(load_file(Data), _, _) :-
 	reset_nodes_for_module(Module),
 	debug(bt, 'reset ~w nodes', [Module]).
 
+/* TODO removed until I can make it work
 system:term_expansion(end_of_file, [:-(bt_impl:check_nodes), end_of_file]).
-
+*/
 

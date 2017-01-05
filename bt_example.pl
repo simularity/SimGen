@@ -1,4 +1,4 @@
-:- module(bt_example, [huawei/1]).
+:- module(bt_example, [test/2]).
 /** <module> Examples that define some test behaviors
  *
  * huawe
@@ -52,17 +52,26 @@ type_b !
 
 % :- use_bt(huawei2).
 
-huawei(N) :-
-	use_bt(huawei2),
-	open('huawei.csv', write, Stream),
-	nb_setval(huawei_stream, Stream),
-	start_simulation(0, 60_000_000_000, 1,
+%!	test(+Root:atom, +N:integer) is nondet
+%
+%	run the test.bt test file, making n contexts
+%	with root Root
+%
+test(Root, N) :-
+	File = tests,
+	use_bt(File),
+	open('tests.csv', write, Stream),
+	nb_setval(test_stream, Stream),
+	nb_setval(test_root, Root),
+	start_simulation(
+	    0, 60_000_000_000, 1,
 	   extern{
 		  next_context: N,
 		  add_context_on_tick: 0
 	   }).
 
-:- listen(tick(Extern, Tick, NewExtern), consider_adding_context(Extern, Tick, NewExtern)).
+:- listen(tick(Extern, Tick, NewExtern),
+	  consider_adding_context(Extern, Tick, NewExtern)).
 
 consider_adding_context(Extern, Tick, Extern) :-
 	Extern.add_context_on_tick > Tick,
@@ -70,10 +79,11 @@ consider_adding_context(Extern, Tick, Extern) :-
 consider_adding_context(Extern, _, Extern) :-
 	Extern.next_context = 0,
 	!,
-	nb_getval(huawei_stream, Stream),
+	nb_getval(test_stream, Stream),
 	close(Stream),
 	end_simulation.
 consider_adding_context(Extern, Tick, NewExtern) :-
+	nb_getval(test_root, Root),
 	Extern.add_context_on_tick =< Tick,
 	succ(NN, Extern.next_context),
 	random_between(1, 20, R),
@@ -82,7 +92,7 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 			 next_context: NN,
 			 add_context_on_tick: NewTick
 		     },
-	start_context(huawei2, Extern.next_context, 0).
+	start_context(Root, Extern.next_context, 0).
 
 :- listen(reading(Time, _, Context, Type, Value),
 	  write_event(reading, Time, Context, Type, Value)).
@@ -92,7 +102,7 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 
 write_event(Class, Time, Context, Type, Value) :-
 	Nanos is Time * 60_000_000_000,
-	nb_getval(huawei_stream, Stream),
+	nb_getval(test_stream, Stream),
 	format(Stream, 'unit,~d,~d,~w,~w,~w~n',
 	       [Context, Nanos, Class, Type, Value]).
 
