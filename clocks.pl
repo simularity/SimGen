@@ -24,8 +24,8 @@ new_clock(Name, Start) :-
 clock_units(TimeUnit, TickLength) :-
 	retractall(time_unit(_)),
 	retractall(tick_length(_)),
-	asserta(TimeUnit),
-	asserta(TickLength).
+	asserta(time_unit(TimeUnit)),
+	asserta(tick_length(TickLength)).
 
 update_clocks :-
 	bagof(Name, Val^clock(Name, Val), Clocks),

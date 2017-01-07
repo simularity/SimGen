@@ -4,6 +4,13 @@
 
 :- use_module(bt_impl, [make_cn/2, emit/1]).
 
+:-listen(simulation_starting, reset).
+
+reset :-
+	retractall(running(_)).
+
+:- multifile bt_impl:make_cn_impl/3.
+
 bt_impl:make_cn_impl(~? , C-N, _-_) :-
 	running(C-N),
 	!.

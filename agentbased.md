@@ -10,8 +10,7 @@ BTA depends on the SWI-Prolog library(broadcast).
 
 System is started by calling `start_simulation/4`.
 
-Issues
-==========
+## Issues
 
  * External - handling the external tick callback.
  * How does Prolog start/stop C-N
@@ -36,8 +35,7 @@ Issues
  * thread synch - we're single threaded 8cD
 
 
-The Tick Sequence
-=========
+## The Tick Sequence
 
  - if `end_simulation_message_exists` stop the simulation
  - Update all clocks
@@ -50,8 +48,7 @@ The Tick Sequence
  - broadcast all messages off the u queue until its empty
  - display an ascii graphic debug panel listing running tasks and known values using `debug/3`.
 
-Reentrant Messaging
-===================
+## Reentrant Messaging
 
 Reentrant messaging is bad. 
 
@@ -64,13 +61,11 @@ but must call `emit/1`. This adds the messages to messaging queue named u.
 Hence nodes cannot synch broadcast.
 
 
-Listener IDs
-============
+## Listener IDs
 
 Listener ID's are C-N
 
-Starting Tasks
-==============
+## Starting Tasks
 
 Tasks are started by calling `make_cn(C-N)`
 
@@ -83,8 +78,7 @@ What task does on startup
 
 Note that most tasks ignore restart messages. If the task is started, do NOT emit a starting message
 
-Stopping Tasks
-==============
+## Stopping Tasks
 
 Tasks are stopped by being _terminated_ or by their internal logic.
 
@@ -96,8 +90,7 @@ Tasks are stopped by being _terminated_ or by their internal logic.
       * stopped(C-N, fail)
       * stopped(C-N, terminated)
 
-Terminating Tasks
-=================
+## Terminating Tasks
 
 To stop another task, emit `terminate(C-N)` or `terminate_if_child(C-N)`.
 
@@ -107,8 +100,7 @@ Don't forget to do the normal 'Stopping Tasks' stuff, including emitting `stoppe
 
 Make some convenience preds
 
-Starting and stopping contexts
-==============================
+## Starting and stopping contexts
 
 A message to start or stop a context is put on the simgen queue by Prolog code via the convenience pred.
 
@@ -126,20 +118,18 @@ When a context ends, it does the following:
 
 Values for dead contexts are gone in a tick.
 
-State Info
-==========
+## State Info
 
 Tasks use assert/retract 
 
-Events
-==========
+## Events
+
 The valuator must emit reading events
 broadcast(reading(Time, ContextTime, Context, LVAL, Value)).
 
 Alter the documentation for externals to listen to the starting/stopped messages
 
-Values
-==========
+## Values
 
 Values are stored by a valuator.
 
@@ -152,9 +142,7 @@ Each tick the valuator will loop-recur:
   * it'll send a `broadcast(propagate)`.
   * Send `broadcast_request(more)`. If anyone responds, continue loop
 
-pdq node
-===========
-
+## pdq node
 
 the pdq node will do a first tick, then remaining ticks
 
@@ -172,8 +160,7 @@ in response to more, we succeed if we still have things to eval.
 
 If the valuator doesn't have a value for getval, it fails.
 
-Clocks 
-=========
+## Clocks 
 
 Clocks are just facts in a clocks module.
 
@@ -182,8 +169,7 @@ You get the current clock time by pred query.
 new_clock/2 assumes simgen as the parent clock.
 
 
-Parallel
-========
+## Parallel
 
 Parallel is easy with this scheme.
 
@@ -198,21 +184,18 @@ Register a listener for done that removes from list of tasks we're working on. S
 terminate as usual.
 
 
-Development Practices
-=====================
+## Development Practices
 
  * Can we automate check for reentrant messages?
 
  
-simgen queue messages
-=====================
+## simgen queue messages
 
  * `new_clock(Context, Time)` - Create this clock
  * `start_node(Context-Root)` - start a node
 
 
-u queue messages
-================
+## u queue messages
 
 
 

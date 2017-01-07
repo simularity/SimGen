@@ -3,11 +3,21 @@
 :- dynamic running/1, to_do/2, first_tick_done/1.
 
 :- use_module(bt_impl, [emit/1]).
+:- use_module(valuator).
 
-bt_impl:make_cn_impl(~? , C-N, _-_) :-
+:-listen(simulation_starting, reset).
+
+reset :-
+	retractall(running(_)),
+	retractall(to_do(_, _)),
+	retractall(first_tick_done(_)).
+
+:- multifile bt_impl:make_cn_impl/3.
+
+bt_impl:make_cn_impl( '!' , C-N, _-_) :-
 	running(C-N),
 	!.
-bt_impl:make_cn_impl(~?, C-N, CParent-NParent) :-
+bt_impl:make_cn_impl( '!' , C-N, CParent-NParent) :-
 	asserta(running(C-N)),
 	listen(C-N, terminate(C-N), pdq:terminate(C-N)),
 	listen(C-N, terminate_if_child(CParent-NParent),
@@ -81,9 +91,9 @@ eval(C, '='(LVAL, RVAL)) :-
 
 /*     ================= DONE TO HERE FRIDAY 8pm ======== */
 
-conds(X) :- once(conds_(X)).
-conds_([]).
-conds_([H | T]) :-
+conds(C, X) :- once(conds_(C, X)).
+conds_(_, []).
+conds_(C, [H | T]) :-
 	H =.. [CompareOp, Left, Right],
 	eval_rval(C, ezval, Left, LeftVal),
         eval_rval(C, ezval, Right, RightVal),
@@ -91,9 +101,9 @@ conds_([H | T]) :-
         Compo =.. [CompareOp, LeftVal, RightVal],
 	call_if_avail(Compo, LeftVal, RightVal),
 	debug(bt(ticks, cond), 'cond ~w ~w ~w passed', [CompareOp, LeftVal, RightVal]),
-	conds(T).
-conds_([H | _]) :-
-	debug(bt(ticks, cond), 'cond ~w failed', [H]),
+	conds(C, T).
+conds_(C, [H | _]) :-
+	debug(bt(ticks, cond), 'context ~w cond ~w failed', [C, H]),
 	fail.
 
 call_if_avail(_, '$not_avail$', _).
@@ -115,49 +125,53 @@ eval_rval(C, GetFunctor, eval(C, RVal) , Value) :-
 	RVal =.. [F | Args],
 	get_functor_ok(GetFunctor, F),
 	maplist(eval_rval(C, GetFunctor), Args, ArgVals),
-	do_func(F, ArgVals, Value).
+	do_func(C, F, ArgVals, Value).
 eval_rval(C, GetFunctor, eval(C, F), Value) :-
 	atom(F),
-	get_functor_ok(GetFunctor, F),
-	do_func(F, [], Value).
-eval_rval(C, _, const(Val), Val).
-% we must call GetFunctor in a loop. This is how we do
-% dataflow logic
-eval_rval(C, GetFunctor, var(Name), Val) :-
-	Func =.. [GetFunctor, Name, Val],
-	shift(Func),
-	(   var(Val)
-	->  eval_rval(C, GetFunctor, var(Name), Val)
-	;   true
+	(   get_functor_ok(GetFunctor, F)
+	->  do_func(C, F, [], Value)
+	 ;  get_functor_ok(Legal, F),
+	    gf_name_symbol(GetFunctor, GetFunctorSymbol),
+	    gf_name_symbol(Legal, LegalSymbol),
+	    debug(error(pdq, bad_get), 'Illegal to use ~w in ~w, try ~w',
+		  [GetFunctorSymbol, F, LegalSymbol]),
+	    Value = 0
 	).
+eval_rval(_, _, const(Val), Val).
+eval_rval(C, GetFunctor, var(Name), Val) :-
+	!, % Oooh, this might fail (puts fingers in ears)
+	Func =.. [GetFunctor, C, Name, Val],
+	call(valuator:Func).
 
-emit_val(LVAL, Value) :-
-	current_context(Context),
-	shift(getclock(simgen, Time)),
-	shift(getclock(Context, ContextTime)),
-	broadcast(reading(Time, ContextTime, Context, LVAL, Value)).
+get_functor_ok(lastval, levy_flight).
+get_functor_ok(lastval, wander).
+get_functor_ok(lastval, clock).
+get_functor_ok(getval, clock).
+get_functor_ok(ezval, clock).
 
-% TODO make this do somethin
-get_functor_ok(_,_).
+gf_name_symbol(getval, '=').
+gf_name_symbol(lastval, ':=').
+gf_name_symbol(ezval, 'in cond').
 
 e( '+', A, B, C) :- C is A + B.
 e( '-', A, B, C) :- C is A - B.
 e( '*', A, B, C) :- C is A * B.
 e( '/', A, B, C) :- C is A / B.
 
-do_func(levy_flight, [LastVal, Lo, Hi], Val) :-
+:- use_module(clocks).
+
+do_func(_, levy_flight, [LastVal, Lo, Hi], Val) :-
 	map64k(LastVal, Lo, Hi, LastValMapped), % map to range [0-64k)
 	levy_flight(LastValMapped, NewValMapped),
 	map64k(Val, Lo, Hi, NewValMapped).
-do_func(wander, [LastVal, Lo, Hi, Dist], Val) :-
+do_func(_, wander, [LastVal, Lo, Hi, Dist], Val) :-
 	Bias is 2 * (LastVal - Lo) / (Hi - Lo) ,
 	random(R),
 	Del is 2 * Dist * R - Dist * Bias,
 	Val is min(Hi, max(Lo, LastVal + Del)).
-do_func(clock, [], Val) :-
-	current_context(Context),
+do_func(Context, clock, [], Val) :-
 	debug(bt(flow,clock), 'function clock(~w)', [Context]),
-	shift(getclock(Context, Val)).
+	get_clock(Context, Val).
 
 map64k(N, Lo, Hi, Mapped) :-
 	ground(Mapped),

@@ -77,10 +77,11 @@ reset_nodes_for_module(Module) :-
 %
 def_node(Head, _, _, _) :-
 	node_(_, Head, _, _, _),
+	gtrace,
+	!,
 	line_count(current_input, Line),
-	format(atom(Msg), '~w is multiply defined on line ~d.', [Head, Line]),
-	print_message(error, error(permission_error(modify, procedure, Head),
-				   context(Head, Msg))).
+	debug(error(compile, multiply_defined_node),
+	      '~w is multiply defined on line ~d.', [Head, Line]).
 def_node(Head, Oper, Args, Children) :-
 	\+ node_(_, Head, _, _, _),
 	debug(bt(compile, node), 'node ~w ~w ~w ~w~n',
@@ -137,6 +138,7 @@ start_simulation(StartTime, TimeUnit, TickLength, External) :-
 	abolish_clocks(_),
 	clock_units(TimeUnit, TickLength),
 	new_clock(simgen, StartTime),
+	broadcast(simulation_starting),
 	do_ticks(External).
 
 %!	end_simulation is det
@@ -198,11 +200,13 @@ do_ticks(External) :-
 	ignore(broadcast_request(tick(External, Time, NewExtern))),
 	% this is *from* external prolog
 	empty_simgen_queue,
+	cycle_values,
 	do_tick_start,
 	empty_u_queue,
 	valuator,
 	do_tick_end,
 	empty_u_queue,
+	broadcast_values,
 	show_debug,
 	do_ticks(NewExtern).
 
@@ -219,16 +223,10 @@ empty_simgen_queue :-
 empty_simgen_queue.
 
 do_tick_start :-
-	repeat,
-	broadcast_request(tick_start),
-	fail.
-do_tick_start.
+	broadcast(tick_start).
 
 do_tick_end :-
-	repeat,
-	broadcast_request(tick_end),
-	fail.
-do_tick_end.
+	broadcast(tick_end).
 
 empty_u_queue :-
 	thread_get_message(u, Msg, [timeout(0)]),
@@ -240,7 +238,7 @@ empty_u_queue.
 end_simulation_message_exists :-
 	thread_get_message(simgen, end_simulation, [timeout(0)]).
 
-:- multifile make_cn_impl/3.
+:- multifile bt_impl:make_cn_impl/3.
 
 make_cn(C-N, CParent-NParent) :-
 	node_(_M, N, O, _A, _C),
@@ -259,3 +257,4 @@ bad_thing_happened :-
 	true.
 
 show_debug.
+

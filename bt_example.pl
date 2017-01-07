@@ -60,15 +60,18 @@ type_b !
 test(Root, N) :-
 	File = tests,
 	use_bt(File),
+	% TODO put this in a catch
 	open('tests.csv', write, Stream),
-	nb_setval(test_stream, Stream),
-	nb_setval(test_root, Root),
+	b_setval(test_stream, Stream),
+	b_setval(test_root, Root),
+	!, % sanity measure,
 	start_simulation(
 	    0, 60_000_000_000, 1,
 	   extern{
 		  next_context: N,
 		  add_context_on_tick: 0
-	   }).
+	   }),
+	close(Stream).
 
 :- listen(tick(Extern, Tick, NewExtern),
 	  consider_adding_context(Extern, Tick, NewExtern)).
@@ -79,9 +82,8 @@ consider_adding_context(Extern, Tick, Extern) :-
 consider_adding_context(Extern, _, Extern) :-
 	Extern.next_context = 0,
 	!,
-	nb_getval(test_stream, Stream),
-	close(Stream),
 	end_simulation.
+
 consider_adding_context(Extern, Tick, NewExtern) :-
 	nb_getval(test_root, Root),
 	Extern.add_context_on_tick =< Tick,
@@ -98,20 +100,29 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 	  write_event(reading, Time, Context, Type, Value)).
 
 :- listen(starting(Context-Type),
-	  get_clock(simgen, Time),
-	  write_event(text, Time, Context, Type, start)).
+	  (   get_clock(simgen, Time),
+	      write_event(text, Time, Context, Type, start)
+	  )
+	 ).
+
+:- use_module(clocks).
+% TBD - should we reexport get_clock/2 in behavior_tree?
 
 :- listen(stopped(Context-Type, done),
-	  get_clock(simgen, Time),
-	  write_event(text, Time, Context, Type, success)).
+	  (   get_clock(simgen, Time),
+	      write_event(text, Time, Context, Type, success)
+	  )
+	 ).
 
 :- listen(stopped(Context-Type, fail),
-	  get_clock(simgen, Time),
-	  write_event(text, Time, Context, Type, fail)).
+	  (   get_clock(simgen, Time),
+	      write_event(text, Time, Context, Type, fail)
+	  )
+	 ).
 
 write_event(Class, Time, Context, Type, Value) :-
 	Nanos is Time * 60_000_000_000,
-	nb_getval(test_stream, Stream),
+	b_getval(test_stream, Stream),
 	format(Stream, 'unit,~d,~d,~w,~w,~w~n',
 	       [Context, Nanos, Class, Type, Value]).
 
