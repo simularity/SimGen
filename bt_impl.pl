@@ -1,4 +1,5 @@
 :- module(bt_impl, [
+	      bad_thing_happened/0,
 	      reset_nodes_for_module/1,
 	      set_current_bt_module/0,
 	      def_node/4,   % node(+Head, +Oper, +Args, +Children)
@@ -8,14 +9,25 @@
 	      end_simulation/0,
 %	      bt_time/1, % get the time of the global clock
 %	      bt_context_time/2, % get the time of the context clock
-	      check_nodes/0 % check_nodes
+	      check_nodes/0, % check_nodes
+	      make_cn/2,
+	      make_cn_impl/3,
+	      emit/1
 	 ]).
 /** <module> run time support for bt
  *
  * "If you have done something twice, you are likely to do it again."
  *
  * Brian Kernighan and Bob Pike
+ *
+ * Agent based version
 */
+
+:- use_module(clocks).
+:- use_module(valuator).
+% TBD put these in a directory
+:- use_module(random_selector).
+:- use_module(pdq).
 
 		 /*******************************
 		 * Compilation support          *
@@ -122,14 +134,10 @@ print_no_def(Node, Head) :-
 %	@arg external data for use by event listeners
 %
 start_simulation(StartTime, TimeUnit, TickLength, External) :-
-	b_setval(context, 0),
-	b_setval(current_node, none),
-	do_tasks(config(TimeUnit, TickLength, External),
-		 [clock(simgen, StartTime)],   % only clock in list is simgen
-		 [], % vals empty at start of tick
-		 [], % no oldvals, no previous tick
-		 [], % qtasks is empty, start of tick
-		 []). % qtnt is empty
+	abolish_clocks(_),
+	clock_units(TimeUnit, TickLength),
+	new_clock(simgen, StartTime),
+	do_ticks(External).
 
 %!	end_simulation is det
 %
@@ -143,10 +151,9 @@ end_simulation :-
 	thread_send_message(simgen, end_simulation).
 
 start_context(Root, Context, Time) :-
-	thread_send_message(simgen, task(Context, Root, start_context_clock(Context, Time))),
-	thread_send_message(simgen, task(Context, Root, run_node(Context, Root))). % this IS first tick
+	thread_send_message(simgen, new_clock(Context, Time)),
+	thread_send_message(simgen, start_node(Context-Root)).
 
-%
 		 /*******************************
 		 * Support for User API         *
 		 *******************************/
@@ -155,43 +162,13 @@ start_context(Root, Context, Time) :-
 		 *	   Simulator            *
 		 *******************************/
 
-/* the interpreter runs in cycles.
- * A cycle
-0. send the tick message, and replace the Extern with NewExtern
-1. get messages from an external message queue and add the associated
-tasks to the task queue.
-2. Run tasks, responding to shifts. The balls:
-    * qtask(Task)  - Queue the argument to be run in this tick
-    * qtnt(Task) - Queue the argument for the next tick
-    * end_simulation - stop the simulation
-    * lastval(Name, Val) - bind Val to the last tick
-           vlaue of this variable for this context
-    * getval(Name, Val) - bind Val if you can
-           call in a loop
-    * setval(Name, Val) - record val
-    * ezval(Name, Val) - get a value, always succeeding, using
-          oldval, val, and default of '$not_avail$'
-    * getclock(Name, Time) - Name is a Context for context clock
-    * terminate(Node, Context) - remove all tasks from qtask and
-      qtnt that unify with Node and Context and then terminate the
-      children
-3. increment the clocks
-4. start another tick, using the
-      task_next_tick queue as the tick queue and with a fresh set of
-      vals
-
-The Sim object is evil. Have a list of clocks, extern, values, qtask,
-and qtnt
-
-Task format  =|task(Context, Node, Goal)|=
-
-do_tick and do_task mutually recursive? No - have do_task that gets
-[H|T]. When it gets [], it starts a new cycle. Might have a timeout.
-
-*/
+/*
+ * See the document agentbased.md that should have come
+ * with this file for information about the design of this code.
+ */
 
 /*
- *  Queue to send messages into the system during simulation
+ *  Queue to send messages into the simulator during simulation
  */
 :- initialization (  message_queue_property(_, alias(simgen)),
 		     message_queue_destroy(simgen)
@@ -200,479 +177,83 @@ do_tick and do_task mutually recursive? No - have do_task that gets
 		  ),
 		  message_queue_create(_, [alias(simgen)]).
 
-:- meta_predicate det_reset_in_context(+, 0, -, -),
-	det_reset(0, -, -), with_context(+, 0).
+/*
+Queue to buffer messages to make agent-like behavior
+*/
 
-%!	det_reset_in_context(+Context:atom, +Goal:goal, -Ball:term,
-%!          -Continuation:continuation) is det
-%
-%	set the context and do a reset, but if Goal fails,
-%	return 0's anyway
-%
-det_reset_in_context(Context, Goal, Ball, Continuation) :-
-	with_context(Context, det_reset(Goal, Ball, Continuation)).
+:- initialization (  message_queue_property(_, alias(u)),
+		     message_queue_destroy(u)
+		  ;
+		     true
+		  ),
+		  message_queue_create(_, [alias(u)]).
 
-det_reset(Goal, Ball, Continuation) :-
-	(   reset(Goal, Ball, Continuation)
-	->  true
-	;   Ball = 0,
-	    Continuation = 0
-	).
 
-%!	do_tasks(+Config:term, +Clocks:list, +Vals:list,
-%!	+OldVals:list, +QTasks:list, +QTNT:list) is det
-%
-%	perform simgen tasks. This is the big kahuna.
-%
-%	@arg Config term with misc stuff we need
-%	@arg Clocks a list of terms clock(Name, Time)
-%	@arg Vals a list of continuous values known for this tick
-%	@arg OldVals a list of continuous values known for last tick
-%	@arg QTasks a list of tasks to run this tick
-%	@arg QTNT a list of tasks to run next tick
-%
-do_tasks(_, _, _, _, _, _) :-
+do_ticks(_External) :-
 	end_simulation_message_exists.
-do_tasks(Config, Clocks, Vals, _, [], QTNT) :-
-	% no more tasks, move to next tick
-	memberchk(clock(simgen, Time), Clocks),
-	Config = config(TimeUnit, TickLength, Extern),
-	broadcast_request(tick(Extern, Time, NewExtern)),
-	get_message_tasks(MessageTasks),
-	append(QTNT, MessageTasks, NewTasks),
-	increment_clocks(Config, Clocks, NewClocks),
-	memberchk(clock(simgen, NewTime), Clocks),
-	with_output_to(string(PNewTasks), portray_clause(NewTasks)),
-	debug(bt(ticks, tick), '**** start tick ~w with tasks ~w', [NewTime, PNewTasks]),
-	do_tasks(config(TimeUnit, TickLength, NewExtern),
-		 NewClocks,
-		 [],    % new Vals
-		 Vals,  % now OldVals
-		 NewTasks,   % tasks for new tick
-		 []).   % no QTNT
-do_tasks(Config, Clocks, Vals, OldVals,
-	 [task(Context, Node, Goal) | Rest], QTNT) :-
-    with_output_to(string(PNewTask), portray_clause(task(Context, Node, Goal))),
-    debug(bt(ticks, tasks), 'do task ~w', [PNewTask]),
-    det_reset_in_context(Context, Goal, Ball, Continuation),
-    handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    Rest,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation).
+do_ticks(External) :-
+	update_clocks,
+	get_clock(simgen, Time),
+	% this is for external prolog
+	ignore(broadcast_request(tick(External, Time, NewExtern))),
+	% this is *from* external prolog
+	empty_simgen_queue,
+	do_tick_start,
+	empty_u_queue,
+	valuator,
+	do_tick_end,
+	empty_u_queue,
+	show_debug,
+	do_ticks(NewExtern).
 
-%!	handle_the_ball(+Ball:ball,
-%!           +Config:term,
-%!           +Clocks:list,
-%!           +Vals:list,
-%!           +OldVals:list,
-%!           +QTasks:list,
-%!           +QTNT:list,
-%!           +Context:integer,
-%!           +Node:atom,
-%!           +Continuation) is det
-%
-%           Passed a ball from a task, handle it and
-%           continue simulating.
-%
-%   @arg Ball the ball passed by the task
-%   @arg Config term of form config(TimeUnit, TickLength, Extern)
-%   @arg Clocks list of clocks
-%   @arg Vals list of value terms of the form val(VariableName, Context,
-%          Node, Val)
-%   @arg OldVals list of value terms from the previous cycle
-%   @arg QTasks list of queued tasks
-%   @arg QTNT list of tasks queud for next tick
-%   @arg Context the context of the current ball
-%   @arg Node the node that threw the current ball
-%   @arg Continuation the continuation to call to resume processing
-%
+empty_simgen_queue :-
+	thread_get_message(simgen, new_clock(Name, Start), [timeout(0)]),
+	!,
+	new_clock(Name, Start),
+	empty_simgen_queue.
+empty_simgen_queue :-
+	thread_get_message(simgen, start_node(Context-Root), [timeout(0)]),
+	!,
+        make_cn(Context-Root, Context-'$none$'),
+	empty_simgen_queue.
+empty_simgen_queue.
 
-% always fail but report what we're handling
-handle_the_ball(    Ball,
-		    _Config,
-		    _Clocks,
-		    _Vals,
-		    _OldVals,
-		    _QTasks,
-		    _QTNT,
-		    Context,
-		    Node,
-		    _Continuation) :-
-    debug(bt(ticks, balls), 'handle ball ~w in context ~w node ~w', [Ball, Context, Node]),
-    fail.
-% I am out of balls for this task
-handle_the_ball(    0,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    _Context,
-		    _Node,
-		    _) :-
-	do_tasks(Config, Clocks, Vals, OldVals, QTasks, QTNT).
-% Queue a task for execution this tick
-handle_the_ball(    qtask(Task),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation) :-
-	append(QTasks, [Task], NewTasks),
-	with_context(Context, reset(ignore(Continuation), Ball, NewContinuation)),
-	handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    NewTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    NewContinuation).
-% Queue this task to continue next tick
-handle_the_ball(    next_tick(NodeContext, NodeName),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    _Context,
-		    _Node,
-		    Continuation) :-
-	append(QTNT, [task(NodeContext, NodeName, Continuation)], NewQTNT),
-	do_tasks(Config, Clocks, Vals, OldVals, QTasks, NewQTNT).
-% Queue a task for execution next tick
-handle_the_ball(    qtnt(Task),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation) :-
-	with_context(Context, reset(ignore(Continuation), Ball, NewContinuation)),
-	handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    [Task | QTNT],
-		    Context,
-		    Node,
-		    NewContinuation).
-% End the simulation.
-handle_the_ball(end_simulation, _, _, _, _, _, _, _, _, _).
-% Get the value this tick
-% Caller must check value. If it's ground, life is good.
-% if not, Must be called again
-% til you get grounded value
-handle_the_ball(    getval(Name, Val),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation) :-
-	(   get_the_value(Context, Name, Vals, Val, _),
-	    det_reset_in_context(Context, Continuation, Ball, NewContinuation),
-	    handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    NewContinuation)
-	;
-	    append(QTasks, [task(Context, Node, Continuation)], NewQTasks),
-	    do_tasks(Config, Clocks, Vals, OldVals, NewQTasks, QTNT)
-	).
+do_tick_start :-
+	repeat,
+	broadcast_request(tick_start),
+	fail.
+do_tick_start.
 
-% get the value last tick
-handle_the_ball(    lastval(Name, Val),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation) :-
-	(   get_the_value(Context, Name, OldVals, Val, _)
-	;   print_message(error,
-		bt_fatal_error(flow_error(no_source_last_cycle),
-			       culprit(Node, Context, Name, none)))
-        ),
-	debug(bt(ticks, vals), 'lastval ~w context ~w value ~w',
-	      [Name, Context, Val]),
-	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
-	handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    NewContinuation).
-% like lastval, but doesn't freak out, just returns '$not_avail$' if
-% value isn't available
-handle_the_ball(    ezval(Name, Val),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation) :-
-	(   get_the_value(Context, Name, OldVals, Val, _)
-	;   get_the_value(Context, Name, Vals, Val, _)
-	;   Val = '$not_avail$'
-        ),
-	debug(bt(ticks, vals), 'ezval ~w context ~w value ~w',
-	      [Name, Context, Val]),
-	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
-	handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    NewContinuation).
+do_tick_end :-
+	repeat,
+	broadcast_request(tick_end),
+	fail.
+do_tick_end.
 
-% Set the value
-handle_the_ball(    setval(Name, Val),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation) :-
-	debug(bt(ticks, vals), 'setval ~w context ~w value ~w',
-	      [Name, Context, Val]),
-	% if we already have it, we have multiple sources
-	(   get_the_value(Context, Name, Vals, _AVal, By),
-	    print_message(error, bt_fatal_error(flow_error(multiple_sources), culprit(Node, Context, Name, By)))
-	;
-	    det_reset_in_context(Context, Continuation, Ball, NewContinuation),
-	    handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    [val(Name, Context, Node, Val) | Vals],
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    NewContinuation)
-	).
-% get the clock
-%
-% clocks are named simgen for the master clock, the context for the
-% context clock, and Context-Node-Something for other clocks
-%
-handle_the_ball(    getclock(Name, Val),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation) :-
-	(   member(clock(Name, Val), Clocks), !
-	;
-	    print_message(error, bt_fatal_error(flow_error(no_clock), culprit(Node, Context, Name)))
-	),
-	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
-        handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    NewContinuation).
-handle_the_ball(    newclock(Name, Time),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation) :-
-	(   member(clock(Name, _), Clocks),
-	    print_message(error, bt_fatal_error(flow_error(restart_clock), culprit(Node, Context, Node)))
-	;
-	   true
-	),
-	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
-        handle_the_ball(Ball,
-		    Config,
-		    [clock(Name, Time) | Clocks],
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    NewContinuation).
-
-% terminate(Node, Context) - remove all tasks from qtask and
-%      qtnt that unify with Node and Context
-handle_the_ball(    terminate(Node, Context),
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    QTasks,
-		    QTNT,
-		    Context,
-		    Node,
-		    Continuation) :-
-	    det_reset_in_context(Context, Continuation, Ball, NewContinuation),
-	    select(task(Context, Node, _), QTasks, NewQTasks),
-	    select(task(Context, Node, _), QTNT, NewQTNT),
-	    handle_the_ball(Ball,
-		    Config,
-		    Clocks,
-		    Vals,
-		    OldVals,
-		    NewQTasks,
-		    NewQTNT,
-		    Context,
-		    Node,
-		    NewContinuation).
-
-:- meta_predicate with_node(+, 0), with_events(0).
-
-with_context(Context, Goal) :-
-	b_getval(context, OldContext),
-	b_setval(context, Context),
-	call(Goal),
-	b_setval(context, OldContext).
-
-current_context(Context) :-
-	b_getval(context, Context).
-
-with_node(Node, Goal) :-
-	b_getval(current_node, OldNode),
-	b_setval(current_node, Node),
-	call(Goal),
-	b_setval(current_node, OldNode).
-
-% this isn't working
-% because we never return from the call
-% probably because cond is never failing
-with_events(Goal) :-
-	current_context(Context),
-	shift(getclock(simgen, Time)),
-	shift(getclock(Context, ContextTime)),
-	b_getval(current_node, Node),
-	debug(bt(ticks,  events), 'start(~w, ~w, ~w, ~w, ~w)',
-	      [Time, ContextTime, Context, Node, start]),
-	broadcast(text(Time, ContextTime, Context, Node, start)),
-	(   call(Goal)
-	->   Result = succeed
-	;    Result = fail
-	),
-	debug(bt(ticks,  events), 'text(~w, ~w, ~w, ~w, ~w)',
-	      [Time, ContextTime, Context, Node, Result]),
-	broadcast(text(Time, ContextTime, Context, Node, Result)),
-        (   Result = succeed
-	->  true
-	;   fail
-	).
-
-
-current_node(Node) :-
-	b_getval(current_node, Node).
-
-
-get_message_tasks([task(Context, Node, Goal) | Rest]) :-
-	thread_get_message(simgen, task(Context, Node, Goal), [timeout(0)]),
-	get_message_tasks(Rest).
-get_message_tasks([]).
+empty_u_queue :-
+	thread_get_message(u, Msg, [timeout(0)]),
+	!,
+	broadcast(Msg),
+	empty_u_queue.
+empty_u_queue.
 
 end_simulation_message_exists :-
 	thread_get_message(simgen, end_simulation, [timeout(0)]).
 
-increment_clocks(_, [], []).
-increment_clocks(config(TimeUnit, TickLength, External),
-		 [clock(Name, Time) | Clocks],
-		 [clock(Name, NewTime) | NewClocks]) :-
-	NewTime is Time + TickLength,
-	increment_clocks(config(TimeUnit, TickLength, External), Clocks, NewClocks).
+:- multifile make_cn_impl/3.
 
-get_the_value(Context, Name, Vals, Val, Node) :-
-	member(val(Name, Context, Node, Val), Vals).
+make_cn(C-N, CParent-NParent) :-
+	node_(_M, N, O, _A, _C),
+	make_cn_impl(O, C-N, CParent-NParent).
+
+emit(Msg) :-
+	thread_send_message(u, Msg).
 
 		 /*******************************
-		 * Run Time Library	       *
+		 * DONE TO HERE
 		 *******************************/
 
-start_context_clock(Context, Time) :-
-	shift(newclock(Context, Time)).
 
-run_node(Context, Node) :-
-	node_(_M, Node, Op, Args, Children),
-	debug(bt(nodes, start_stop), 'node ~w starts', [Node]),
-	(   with_context(Context, with_node(Node, with_events(run_node(Op, Args, Children))))
-	->   Result = true
-	;    Result = fail
-	),
-	(   Result = true
-	->  debug(bt(nodes, start_stop), 'node ~w succeeds', [Node])
-	;   debug(bt(nodes, start_stop), 'node ~w fails', [Node])
-	),
-	(   Result = true
-	->  true
-	;   fail).
-
-run_node(Node) :-
-	current_context(Context),
-	run_node(Context, Node).
-
-run_node(~? , Args, Children) :-
-	sum_list(Args, Total),
-	Select is random_float * Total,
-	run_random(Select, Args, Children).
 run_node('!' , [FirstTick, OtherTicks, Conds], _) :-
 	gtrace,
 	eval(FirstTick),
@@ -713,18 +294,6 @@ more_eval(_, _) :-
 	      [Node, Context]),
 	!, fail.
 
-run_random(_Select, _, [Child]) :-
-	run_node(Child).
-run_random(Select, [A |_], [Child | _]) :-
-	Select < A,
-	run_node(Child).
-run_random(Select, [A |T], [_ | Kids]) :-
-	Select >= A,
-	NS is Select - A,
-	run_random(NS, T, Kids).
-run_random(_, [], _) :-
-	current_node(Node),
-	print_message(warning, bt_nonfatal_error(node_error(no_child_to_run), culprit(Node))).
 
 		 /*******************************
 		 * Continuous evaluator
@@ -847,3 +416,15 @@ levy_flight(LastVal, Val, Bit) :-
 	levy_flight(NewVal, Val, NewBit).
 
 % TODO make good messages
+%
+%
+		 /*******************************
+		 * Dev Support
+		 *******************************/
+
+% whenever we're in trouble we call this, so there's a convenient place
+% to stick a gtrace
+bad_thing_happened :-
+	true.
+
+show_debug.
