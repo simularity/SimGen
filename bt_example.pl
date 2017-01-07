@@ -97,8 +97,17 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 :- listen(reading(Time, _, Context, Type, Value),
 	  write_event(reading, Time, Context, Type, Value)).
 
-:- listen(text(Time, _, Context, Type, Value),
-	  write_event(text, Time, Context, Type, Value)).
+:- listen(starting(Context-Type),
+	  get_clock(simgen, Time),
+	  write_event(text, Time, Context, Type, start)).
+
+:- listen(stopped(Context-Type, done),
+	  get_clock(simgen, Time),
+	  write_event(text, Time, Context, Type, success)).
+
+:- listen(stopped(Context-Type, fail),
+	  get_clock(simgen, Time),
+	  write_event(text, Time, Context, Type, fail)).
 
 write_event(Class, Time, Context, Type, Value) :-
 	Nanos is Time * 60_000_000_000,

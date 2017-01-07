@@ -32,7 +32,7 @@ Issues
  * clocks
  * parallel
  * debug - TBD
- * Unlike LSL there is NO recursive message avoidance. Nodes must not emit messages, ubt send them to messaging queue. Hence nodes cannot broadcast_request.
+ * Unlike LSL there is NO recursive message avoidance. Nodes must not broadcast messages, ubt send them to messaging queue. Hence nodes cannot broadcast_request.
  * thread synch - we're single threaded 8cD
 
 
@@ -78,7 +78,7 @@ Every node op must implement a clause of the multifile predicate `make_cn_impl(O
 
 What task does on startup
  * set up listen for messages
- * record who started you, so you can respond to terminate_if_child request
+ * record who started you, so you can respond to terminate_if_child request (thats in the listener)
  * emit `starting(C-N)`
 
 Note that most tasks ignore restart messages. If the task is started, do NOT emit a starting message
@@ -88,7 +88,7 @@ Stopping Tasks
 
 Tasks are stopped by being _terminated_ or by their internal logic.
 
- * emit terminate_if_child to stop any running children
+ * emit terminate_if_child to stop any running children (note you might not have any)
  * remove your listeners
  * abolish any state you may have
  * Nodes announce
@@ -131,6 +131,13 @@ State Info
 
 Tasks use assert/retract 
 
+Events
+==========
+The valuator must emit reading events
+broadcast(reading(Time, ContextTime, Context, LVAL, Value)).
+
+Alter the documentation for externals to listen to the starting/stopped messages
+
 Values
 ==========
 
@@ -140,16 +147,30 @@ lastvals are gotten by a predicate call.
 
 setvals are just predicate calls.
 
-Each tick the valuator will loop: 
+Each tick the valuator will loop-recur: 
+ 
+  * it'll send a `broadcast(propagate)`.
+  * Send `broadcast_request(more)`. If anyone responds, continue loop
 
-  * Send `broadcast_request(more)`. 
-  * If it succeeds, it'll send a `broadcast(propagate)`.
+pdq node
+===========
 
-the action node will 
-broad
+
+the pdq node will do a first tick, then remaining ticks
+
+at end of first tick, it asserts first_tick(C-N).
+at task stop time, we retract first_tick(C-N).
+
+at start of each tick we assert to_do(C-N, List) with stuff to eval that pass.
+
+in response to propagate we try to evaluate each expression.
+
+as we pass through the list, we weed out the ones that succeed, 
+and update to_do with the ones that failed.
+
+in response to more, we succeed if we still have things to eval.
+
 If the valuator doesn't have a value for getval, it fails.
-
-Should move the code to evaluate into it's own module.
 
 Clocks 
 =========
