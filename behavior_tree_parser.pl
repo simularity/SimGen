@@ -15,6 +15,7 @@ license:license(simularity, proprietary,
 :- use_module(library(dcg/basics)).
 
 my_print_message(Type, Err) :-
+	gtrace,
 	format('This ~w thing happened. ~w~n', [Type, Err]).
 
 d(Format, Args) --> {debug(bt, Format, Args)}, [].

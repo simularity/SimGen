@@ -15,3 +15,6 @@ type_b !
  p := levy_flight(p, 0, 200),
  t := wander(t, 0, 200, 3),
  speed = 500 + clock() - p - t.
+
+% this file has syntax errors
+% type_a and type_b have no conditions

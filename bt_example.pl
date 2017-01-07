@@ -1,4 +1,4 @@
-:- module(bt_example, [test/2]).
+:- module(bt_example, [test/2, test/3]).
 /** <module> Examples that define some test behaviors
  *
  * wawei
@@ -58,7 +58,9 @@ type_b !
 %	with root Root
 %
 test(Root, N) :-
-	File = tests,
+	test(Root, tests, N).
+
+test(Root, File, N) :-
 	use_bt(File),
 	% TODO put this in a catch
 	open('tests.csv', write, Stream),
