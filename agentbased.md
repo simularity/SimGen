@@ -188,16 +188,37 @@ terminate as usual.
 
  * Can we automate check for reentrant messages?
 
- 
+## external broadcast messages
+
+ * `tick(External, Time, NewExternal)` - prolog code responds by grounding NewExternal and doing whatever needs done
+ * `starting(C-N)`
+ * `stopped(C-N, done)`
+ * `stopped(C-N, fail)`
+ * `stopped(C-N, terminated)`
+ * `starting(C-N)`
+ * `reading(Time, ContextTime, Context, Type, Value)`
+ * `simulation_starting`
+
+## internal message listeners
+
+Besides any of the external messages
+
+ * `terminate(C-N)`
+ * `terminate_if_child(CAncestor-NAncestor)`
+ * `tick_start` - do whatever your node does at tick_start
+ * `tick_end` - do whatever your node does at tick_end
+ * `more`  - if handler succeeds, it wants more iterations of flow propagation
+ * `propagate` - attempt to propagate all remaining flows
+
 ## simgen queue messages
 
  * `new_clock(Context, Time)` - Create this clock
  * `start_node(Context-Root)` - start a node
-
+ * `end_simulation` - kill simulation at end of tick
 
 ## u queue messages
 
-
+ all messages on the u queue are subsequently broadcast
 
 
 

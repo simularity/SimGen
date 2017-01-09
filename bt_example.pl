@@ -1,80 +1,52 @@
 :- module(bt_example, [test/2, test/3]).
-/** <module> Examples that define some test behaviors
- *
- * wawei
- *
- * Each context is one of two types.
- *
- * Type a speed is 500 - P - T
- * Type b speed is 500 + time - P - T
- *
- * Type b fails after a random time
- *
- * generator
- *
- * This example simulates in-service failure control of a gas powered
- * generator set.
- *
- * A manufacturer of gas powered generators runs the devices for
- * a 24 hour period to eliminate those that will fail within the first
- * 24 hours of use,
- *
- * Doing this is expensive for the manufacturer. They'd like to identify
- * failures before they happen to save gasoline, reduce
- * in-house wear on units, and be able to rework the bad generators
- * instead of scrapping them.
+/** <module> Example that runs the test simulation
+
+
  */
-:- use_module(behavior_tree).
 
-/* no quasiquotes til I have time to wrassle with them
-{|bt||
-huawei ~?
- type_a,
- type_b.
-
-type_a !
- p = 100,
- t = 100;
- p := levy_flight(p, 0, 200),
- t := wander(t, 0, 200, 3),
- speed = 500 - p - t.
-
-type_b !
- p = 100,
- t = 100;
- p := levy_flight(p, 0, 200),
- t := wander(t, 0, 200, 3),
- speed = 500 + clock() - p - t.
-|}.
-*/
-
-:- writeln('after quasiquote').
-
-% :- use_bt(huawei2).
+% Grab SimGen
+:- use_module(simgen).
 
 %!	test(+Root:atom, +N:integer) is nondet
 %
-%	run the test.bt test file, making n contexts
+%	run the test.bt test file, making N-1 contexts
 %	with root Root
 %
 test(Root, N) :-
 	test(Root, tests, N).
 
+%!	test(+Root:atom, +FileBase:atom, +N:integer) is nondet
+%
+%	run a bt file, making N-1 contexts
+%	with root Root
+%
+%	The file name is like consult, you don't need the .bt
+%	extension
+%
 test(Root, File, N) :-
 	use_bt(File),
-	% TODO put this in a catch
-	open('tests.csv', write, Stream),
-	b_setval(test_stream, Stream),
-	b_setval(test_root, Root),
-	!, % sanity measure,
-	start_simulation(
-	    0, 60_000_000_000, 1,
-	   extern{
-		  next_context: N,
-		  add_context_on_tick: 0
-	   }),
-	close(Stream).
+	setup_call_cleanup(
+	    open('tests.csv', write, Stream),
+	    (	b_setval(test_stream, Stream),
+		b_setval(test_root, Root),
+		!, % sanity measure,
+		start_simulation(
+		    0,                 % the start time, in 'our' units
+		    60_000_000_000,    % how long our units are in nanos
+		    1,                 % how long a tick is in our units
+		    extern{
+			next_context: N,
+			add_context_on_tick: 0
+		    })
+	    ),
+	    close(Stream)
+	).
 
+% we register to listen for ticks
+% and add a new context randomly every 1 to 20 ticks
+% we number them going down
+% when we are asked to make context 0, we instead
+% end the simulation
 :- listen(tick(Extern, Tick, NewExtern),
 	  consider_adding_context(Extern, Tick, NewExtern)).
 
@@ -87,7 +59,7 @@ consider_adding_context(Extern, _, Extern) :-
 	end_simulation.
 
 consider_adding_context(Extern, Tick, NewExtern) :-
-	nb_getval(test_root, Root),
+	b_getval(test_root, Root),
 	Extern.add_context_on_tick =< Tick,
 	succ(NN, Extern.next_context),
 	random_between(1, 20, R),
@@ -98,18 +70,23 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 		     },
 	start_context(Root, Extern.next_context, 0).
 
+% Now we handle reading, starting, and stopped events
+% by writing lines to the csv file
+
+% listen for reading/5 events and write reading events to csv
 :- listen(reading(Time, _, Context, Type, Value),
 	  write_event(reading, Time, Context, Type, Value)).
 
+% write text events to csv in response to starting
 :- listen(starting(Context-Type),
 	  (   get_clock(simgen, Time),
 	      write_event(text, Time, Context, Type, start)
 	  )
 	 ).
 
-:- use_module(clocks).
-% TBD - should we reexport get_clock/2 in behavior_tree?
-
+% We only listen to done and fail stopping. When a node stops
+% it terminates all nodes under it. We aren't usually interested in
+% those.
 :- listen(stopped(Context-Type, done),
 	  (   get_clock(simgen, Time),
 	      write_event(text, Time, Context, Type, success)

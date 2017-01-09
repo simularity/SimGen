@@ -11,7 +11,6 @@
 %	      bt_context_time/2, % get the time of the context clock
 	      check_nodes/0, % check_nodes
 	      make_cn/2,
-	      make_cn_impl/3,
 	      emit/1
 	 ]).
 /** <module> run time support for bt
@@ -22,12 +21,12 @@
  *
  * Agent based version
 */
+user:file_search_path(nodes, 'nodes/').
 
 :- use_module(clocks).
 :- use_module(valuator).
-% TBD put these in a directory
-:- use_module(random_selector).
-:- use_module(pdq).
+:- use_module(nodes(random_selector)).
+:- use_module(nodes(pdq)).
 
 		 /*******************************
 		 * Compilation support          *
@@ -139,7 +138,8 @@ start_simulation(StartTime, TimeUnit, TickLength, External) :-
 	clock_units(TimeUnit, TickLength),
 	new_clock(simgen, StartTime),
 	broadcast(simulation_starting),
-	do_ticks(External).
+	do_ticks(External),
+	!.  % make it steadfast
 
 %!	end_simulation is det
 %

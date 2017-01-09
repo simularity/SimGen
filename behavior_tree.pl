@@ -2,6 +2,7 @@
 	      use_bt/1
 			 ]).
 :- reexport(bt_impl).
+:- reexport(clocks, [get_clock/2]).
 /** <module> Behavior Trees
  *
  */
