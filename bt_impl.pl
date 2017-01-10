@@ -22,11 +22,16 @@
  * Agent based version
 */
 user:file_search_path(nodes, 'nodes/').
+user:file_search_path(simgen, '.').
 
-:- use_module(clocks).
-:- use_module(valuator).
+:- use_module(simgen(clocks)).
+:- use_module(simgen(valuator)).
 :- use_module(nodes(random_selector)).
 :- use_module(nodes(pdq)).
+:- use_module(nodes(check_guard)).
+:- use_module(nodes(wait_guard)).
+:- use_module(nodes(set_guard)).
+:- use_module(nodes(clear_guard)).
 
 		 /*******************************
 		 * Compilation support          *

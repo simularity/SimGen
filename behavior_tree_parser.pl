@@ -104,8 +104,16 @@ bt_statement(':-'(def_node(Head, Operator, Args, Children))) -->
 head(Head) --> an_atom(Head).
 
 bt_operator( ~? ) --> "~?".     % random selector
-bt_operator( '!' ) --> "!".     % continuous action
+bt_operator( '!' ) --> "!".     % pdq
+bt_operator( '?' ) --> "?".     % check condition
+bt_operator( '-?' ) --> "-?".   % wait condition
+bt_operator( set ) --> "set".   % set condition
+bt_operator( clear ) --> "clear". % clear condition
 
+bt_args( '?' , [Cond], []) -->  an_atom(Cond).
+bt_args( '-?' , [Cond], []) -->  an_atom(Cond).
+bt_args( set , [Cond], []) -->  an_atom(Cond).
+bt_args( clear , [Cond], []) -->  an_atom(Cond).
 bt_args( ~? , Args, Children) --> prob_list(Args, Children).
 bt_args( '!', [FirstTicks, RestTicks, Conds], []) -->
 	d('in bt_args', []),
@@ -288,7 +296,6 @@ rval_args_rest([Arg | Args]) -->
 	ws,
 	rval_args_rest(Args).
 rval_args_rest([Arg]) --> rval(Arg).
-
 
 function( levy_flight, 3).
 function( wander, 4).
