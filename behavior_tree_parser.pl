@@ -25,23 +25,22 @@ bt_dcg(define_bt([':-'(set_current_bt_module) | BT])) -->
 	d('in bt_dcg', []),
 	bt_(BT).
 
-bt_([]) --> eos.
 bt_([BTStatement | BT]) -->
     d('in bt_', []),
     ws,
     bt_statement(BTStatement),
     d('got statement', [BTStatement]),
     ws,
-    bt_(BT),
-    ws.
-bt_([BTStatement | BT]) -->
+    bt_(BT).
+bt_([]) --> ws, eos.
+bt_([BT]) -->
 	d('in bt_ error', []),
     ws,
     bt_error,
-    d('got error', [BTStatement]),
+    d('got error', []),
     ws,
-    bt_(BT),
-    ws.
+    bt_(BT).
+
 
 bt_error -->
 	string(OopsCodes),
@@ -112,7 +111,7 @@ bt_operator( clear ) --> "clear". % clear condition
 bt_operator( '->' ) --> "->". % sequence
 bt_operator( try ) --> "try". % try (always succeed)
 
-bt_args( try, [], Child) --> an_atom(Child).
+bt_args( try, [], [Child]) --> a_child(Child).
 bt_args( '->', [], Children) --> nonempty_child_list(Children).
 bt_args( '?' , [Cond], []) -->  an_atom(Cond).
 bt_args( '-?' , [Cond], []) -->  an_atom(Cond).
@@ -327,3 +326,7 @@ nonempty_child_list([Child | MoreChildren]) -->
 	",",
 	nonempty_child_list(MoreChildren).
 nonempty_child_list([Child]) --> ws, an_atom(Child).
+
+
+a_child(Child) -->
+	an_atom(Child).

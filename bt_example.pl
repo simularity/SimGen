@@ -89,6 +89,7 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 % those.
 :- listen(stopped(Context-Type, done),
 	  (   get_clock(simgen, Time),
+	      (	  ground(Type) ; gtrace),
 	      write_event(text, Time, Context, Type, success)
 	  )
 	 ).
@@ -103,5 +104,6 @@ write_event(Class, Time, Context, Type, Value) :-
 	Nanos is Time * 60_000_000_000,
 	b_getval(test_stream, Stream),
 	format(Stream, 'unit,~d,~d,~w,~w,~w~n',
-	       [Context, Nanos, Class, Type, Value]).
+	       [Context, Nanos, Class, Type, Value]),
+	flush_output(Stream).
 

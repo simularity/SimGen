@@ -19,8 +19,8 @@ bt_impl:make_cn_impl(try, C-N, CParent-NParent) :-
 	listen(C-N, terminate(C-N), try_decorator:terminate(C-N)),
 	listen(C-N, terminate_if_child(CParent-NParent),
 	       try_decorator:terminate(C-N)),
-	start_child(C-N),
-	emit(starting(C-N)).
+	emit(starting(C-N)),
+	start_child(C-N).
 
 start_child(C-N) :-
 	bt_impl:node_(_M, N, try, _Args, [Kiddo]),
