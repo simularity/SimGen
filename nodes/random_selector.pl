@@ -19,8 +19,8 @@ bt_impl:make_cn_impl(~?, C-N, CParent-NParent) :-
 	listen(C-N, terminate(C-N), random_selector:terminate(C-N)),
 	listen(C-N, terminate_if_child(CParent-NParent),
 	       random_selector:terminate(C-N)),
-	start_a_child(C-N),
-	emit(starting(C-N)).
+	emit(starting(C-N)),
+	start_a_child(C-N).
 
 start_a_child(C-N) :-
 	bt_impl:node_(_M, N, ~?, Args, Kiddos),

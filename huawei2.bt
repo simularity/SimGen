@@ -40,3 +40,97 @@ type_b !
  t < 120,
  clock() < 25.
 
+/*
+    Test of everything implemented so far
+*/
+
+testall ->
+  try_test_op_priority,
+  try_test_immediate_fail_pdq,
+  try_test_levy_flight,
+  try_test_wander,
+  try_test_subtract_negate,
+  try_test_boundary,
+  try_test_all_operators,
+  try_test_various_assignment.
+
+try_test_op_priority try test_op_priority.
+test_op_priority !
+  x = 0
+;
+  x := x + 2 + 2 * 3
+;
+  x < 50.
+
+% we don't fail on first tick
+try_test_immediate_fail_pdq try test_immediate_fail_pdq.
+test_immediate_fail_pdq !
+  x = 10
+;
+  x := x + 1
+;
+  x < 5
+.
+
+try_test_levy_flight try test_levy_flight.
+test_levy_flight !
+ x = 0
+;
+ x := levy_flight(x, -100, 100)
+;
+ x > -80,
+ x < 80
+.
+
+try_test_wander try test_wander.
+test_wander !
+ x = 0
+;
+ x := wander(x, -100, 100, 5)
+;
+ x > -50,
+ x < 50
+.
+
+try_test_subtract_negate try test_subtract_negate.
+test_subtract_negate !
+ y = 0
+;
+ y := y - -3
+;
+ y < -6,
+ y > 9
+.
+
+try_test_boundary try test_boundary.
+test_boundary !
+;
+ y := y + 20.3
+;
+ y < 30.7
+.
+
+try_test_all_operators try test_all_operators.
+test_all_operators !
+ z = 1 + 2,
+ w = 1 * 2,
+ x = 1 - 2,
+ y = 1 / 2
+;
+ x := 1 + (1/x)
+;
+ x > 3
+.
+
+try_test_various_assignment try test_various_assignment.
+test_various_assignment !
+ z := z + 10,
+ x = 5,
+ y = clock()
+;
+ z := z - 1,
+ x = z
+;
+ x < 5
+.
+

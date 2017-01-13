@@ -109,7 +109,11 @@ bt_operator( '?' ) --> "?".     % check condition
 bt_operator( '-?' ) --> "-?".   % wait condition
 bt_operator( set ) --> "set".   % set condition
 bt_operator( clear ) --> "clear". % clear condition
+bt_operator( '->' ) --> "->". % sequence
+bt_operator( try ) --> "try". % try (always succeed)
 
+bt_args( try, [], Child) --> an_atom(Child).
+bt_args( '->', [], Children) --> nonempty_child_list(Children).
 bt_args( '?' , [Cond], []) -->  an_atom(Cond).
 bt_args( '-?' , [Cond], []) -->  an_atom(Cond).
 bt_args( set , [Cond], []) -->  an_atom(Cond).
@@ -204,6 +208,8 @@ cond_op( =< ) --> "<=".
 cond_op( =< ) --> "=<".
 cond_op( >= ) --> ">=".
 cond_op( >= ) --> "=>".
+cond_op( \= ) --> "!=".
+cond_op( \= ) --> "\\=".
 
 bt_op(20, '+' ) --> "+".
 bt_op(20, '-' ) --> "-".
@@ -312,3 +318,12 @@ atom_codes([X | Rest]) -->
 	{ code_type(X, csym) },
 	atom_codes(Rest).
 atom_codes([]) --> [].
+
+
+nonempty_child_list([Child | MoreChildren]) -->
+	ws,
+	an_atom(Child),
+	ws,
+	",",
+	nonempty_child_list(MoreChildren).
+nonempty_child_list([Child]) --> ws, an_atom(Child).

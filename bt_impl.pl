@@ -32,6 +32,8 @@ user:file_search_path(simgen, '.').
 :- use_module(nodes(wait_guard)).
 :- use_module(nodes(set_guard)).
 :- use_module(nodes(clear_guard)).
+:- use_module(nodes(sequence)).
+:- use_module(nodes(try_decorator)).
 
 		 /*******************************
 		 * Compilation support          *
