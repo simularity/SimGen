@@ -1,0 +1,11 @@
+/*
+    Bunch of simple tests
+
+*/
+once !
+ p = 1
+;
+ p := p + 1
+;
+ p < 2.
+
