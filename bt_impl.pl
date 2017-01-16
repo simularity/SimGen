@@ -197,6 +197,12 @@ Queue to buffer messages to make agent-like behavior
 		  ),
 		  message_queue_create(_, [alias(u)]).
 
+det_reset(Goal, Ball, Continuation) :-
+	(   reset(Goal, Ball, Continuation)
+	->  true
+	;   Ball = 0,
+	    Continuation = 0
+	).
 
 do_ticks(_External) :-
 	end_simulation_message_exists.
@@ -229,18 +235,286 @@ empty_simgen_queue :-
 	empty_simgen_queue.
 empty_simgen_queue.
 
-do_tick_start :-
-	broadcast(tick_start).
+% always fail but report what we're handling
+handle_the_ball(    Ball,
+		    _Config,
+		    _Clocks,
+		    _Vals,
+		    _OldVals,
+		    _QTasks,
+		    _QTNT,
+		    Context,
+		    Node,
+		    _Continuation) :-
+    debug(bt(ticks, balls), 'handle ball ~w in context ~w node ~w', [Ball, Context, Node]),
+    fail.
+% I am out of balls for this task
+handle_the_ball(    0,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    _Context,
+		    _Node,
+		    _) :-
+	do_tasks(Config, Clocks, Vals, OldVals, QTasks, QTNT).
+% Queue a task for execution this tick
+handle_the_ball(    qtask(Task),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	append(QTasks, [Task], NewTasks),
+	with_context(Context, reset(ignore(Continuation), Ball, NewContinuation)),
+	handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    NewTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+% Queue this task to continue next tick
+handle_the_ball(    next_tick(NodeContext, NodeName),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    _Context,
+		    _Node,
+		    Continuation) :-
+	append(QTNT, [task(NodeContext, NodeName, Continuation)], NewQTNT),
+	do_tasks(Config, Clocks, Vals, OldVals, QTasks, NewQTNT).
+% Queue a task for execution next tick
+handle_the_ball(    qtnt(Task),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	with_context(Context, reset(ignore(Continuation), Ball, NewContinuation)),
+	handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    [Task | QTNT],
+		    Context,
+		    Node,
+		    NewContinuation).
+% End the simulation.
+handle_the_ball(end_simulation, _, _, _, _, _, _, _, _, _).
+% Get the value this tick
+% Caller must check value. If it's ground, life is good.
+% if not, Must be called again
+% til you get grounded value
+handle_the_ball(    getval(Name, Val),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	(   get_the_value(Context, Name, Vals, Val, _),
+	    det_reset_in_context(Context, Continuation, Ball, NewContinuation),
+	    handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation)
+	;
+	    append(QTasks, [task(Context, Node, Continuation)], NewQTasks),
+	    do_tasks(Config, Clocks, Vals, OldVals, NewQTasks, QTNT)
+	).
 
 do_tick_end :-
 	broadcast(tick_end).
 
-empty_u_queue :-
-	thread_get_message(u, Msg, [timeout(0)]),
-	!,
-	broadcast(Msg),
-	empty_u_queue.
-empty_u_queue.
+% Set the value
+handle_the_ball(    setval(Name, Val),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	debug(bt(ticks, vals), 'setval ~w context ~w value ~w',
+	      [Name, Context, Val]),
+	% if we already have it, we have multiple sources
+	(   get_the_value(Context, Name, Vals, _AVal, By),
+	    print_message(error, bt_fatal_error(flow_error(multiple_sources), culprit(Node, Context, Name, By)))
+	;
+	    det_reset_in_context(Context, Continuation, Ball, NewContinuation),
+	    handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    [val(Name, Context, Node, Val) | Vals],
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation)
+	).
+% get the clock
+%
+% clocks are named simgen for the master clock, the context for the
+% context clock, and Context-Node-Something for other clocks
+%
+handle_the_ball(    getclock(Name, Val),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	(   member(clock(Name, Val), Clocks), !
+	;
+	    print_message(error, bt_fatal_error(flow_error(no_clock), culprit(Node, Context, Name)))
+	),
+	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
+        handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+handle_the_ball(    newclock(Name, Time),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	(   member(clock(Name, _), Clocks),
+	    print_message(error, bt_fatal_error(flow_error(restart_clock), culprit(Node, Context, Node)))
+	;
+	   true
+	),
+	det_reset_in_context(Context, Continuation, Ball, NewContinuation),
+        handle_the_ball(Ball,
+		    Config,
+		    [clock(Name, Time) | Clocks],
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+
+% terminate(Node, Context) - remove all tasks from qtask and
+%      qtnt that unify with Node and Context
+handle_the_ball(    terminate(Node, Context),
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    QTasks,
+		    QTNT,
+		    Context,
+		    Node,
+		    Continuation) :-
+	    det_reset_in_context(Context, Continuation, Ball, NewContinuation),
+	    select(task(Context, Node, _), QTasks, NewQTasks),
+	    select(task(Context, Node, _), QTNT, NewQTNT),
+	    handle_the_ball(Ball,
+		    Config,
+		    Clocks,
+		    Vals,
+		    OldVals,
+		    NewQTasks,
+		    NewQTNT,
+		    Context,
+		    Node,
+		    NewContinuation).
+
+:- meta_predicate with_node(+, 0), with_events(0).
+
+with_context(Context, Goal) :-
+	b_getval(context, OldContext),
+	b_setval(context, Context),
+	call(Goal),
+	b_setval(context, OldContext).
+
+current_context(Context) :-
+	b_getval(context, Context).
+
+with_node(Node, Goal) :-
+	b_getval(current_node, OldNode),
+	b_setval(current_node, Node),
+	call(Goal),
+	b_setval(current_node, OldNode).
+
+% this isn't working
+% because we never return from the call
+% probably because cond is never failing
+with_events(Goal) :-
+	current_context(Context),
+	shift(getclock(simgen, Time)),
+	shift(getclock(Context, ContextTime)),
+	b_getval(current_node, Node),
+	debug(bt(ticks,  events), 'start(~w, ~w, ~w, ~w, ~w)',
+	      [Time, ContextTime, Context, Node, start]),
+	broadcast(text(Time, ContextTime, Context, Node, start)),
+	(   call(Goal)
+	->   Result = succeed
+	;    Result = fail
+	),
+	debug(bt(ticks,  events), 'text(~w, ~w, ~w, ~w, ~w)',
+	      [Time, ContextTime, Context, Node, Result]),
+	broadcast(text(Time, ContextTime, Context, Node, Result)),
+        (   Result = succeed
+	->  true
+	;   fail
+	).
+
+
+current_node(Node) :-
+	b_getval(current_node, Node).
+
+
+get_message_tasks([task(Context, Node, Goal) | Rest]) :-
+	thread_get_message(simgen, task(Context, Node, Goal), [timeout(0)]),
+	get_message_tasks(Rest).
+get_message_tasks([]).
 
 end_simulation_message_exists :-
 	thread_get_message(simgen, end_simulation, [timeout(0)]).
@@ -251,8 +525,88 @@ make_cn(C-N, CParent-NParent) :-
 	node_(_M, N, O, _A, _C),
 	make_cn_impl(O, C-N, CParent-NParent).
 
-emit(Msg) :-
-	thread_send_message(u, Msg).
+		 /*******************************
+		 * Run Time Library	       *
+		 *******************************/
+
+start_context_clock(Context, Time) :-
+	shift(newclock(Context, Time)).
+
+run_node(Context, Node) :-
+	node_(_M, Node, Op, Args, Children),
+	debug(bt(nodes, start_stop), 'node ~w starts', [Node]),
+	(   with_context(Context, with_node(Node, with_events(run_node(Op, Args, Children))))
+	->   Result = true
+	;    Result = fail
+	),
+	(   Result = true
+	->  debug(bt(nodes, start_stop), 'node ~w succeeds', [Node])
+	;   debug(bt(nodes, start_stop), 'node ~w fails', [Node])
+	),
+	(   Result = true
+	->  true
+	;   fail).
+
+run_node(Node) :-
+	current_context(Context),
+	run_node(Context, Node).
+
+run_node(~? , Args, Children) :-
+	sum_list(Args, Total),
+	Select is random_float * Total,
+	run_random(Select, Args, Children).
+run_node('!' , [FirstTick, OtherTicks, Conds], _) :-
+	gtrace,
+	eval(FirstTick),
+	current_context(Context),
+	current_node(Node),
+	debug(bt(ticks, next_tick), 'Context ~w node ~w waits for next tick',
+	      [Context, Node]),
+	shift(next_tick(Context, Node)),
+	% AHA! when I get back here, my stack's blown away!
+	% The continuation is 'rest of this clause' not
+	% 'continuation sandwich', I think, so I need to
+	% expand all the with_ things!!!
+	debug(bt(ticks, next_tick), 'Context ~w node ~w resumes at next tick',
+	      [Context, Node]),
+	more_eval(OtherTicks, Conds).
+
+% BUG - more_eval isn't failing or succeeding, it's
+% just not
+%
+% DEBUG
+more_eval(Statements, Conds) :-
+	shift(getclock(simgen, Clock)),
+	debug(bt(ticks, val), 'at time ~w more_eval(~w, ~w)', [Clock,
+		   Statements, Conds]),
+	fail.
+more_eval(Statements, Conds) :-
+	eval(Statements),
+	conds(Conds),  % first tick always succeeds so do it here
+	current_context(Context),
+	current_node(Node),
+	shift(next_tick(Context, Node)),
+	more_eval(Statements, Conds).
+more_eval(_, _) :-
+	current_context(Context),
+	current_node(Node),
+	debug(bt(ticks, val),
+	      'condition failed node ~w context ~w',
+	      [Node, Context]),
+	!, fail.
+
+run_random(_Select, _, [Child]) :-
+	run_node(Child).
+run_random(Select, [A |_], [Child | _]) :-
+	Select < A,
+	run_node(Child).
+run_random(Select, [A |T], [_ | Kids]) :-
+	Select >= A,
+	NS is Select - A,
+	run_random(NS, T, Kids).
+run_random(_, [], _) :-
+	current_node(Node),
+	print_message(warning, bt_nonfatal_error(node_error(no_child_to_run), culprit(Node))).
 
 		 /*******************************
 		 * Dev Support
