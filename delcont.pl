@@ -8,9 +8,7 @@ main :-
 p :-
 	writeln(p_e),
 	q,
-	writeln(p_f),
-        fail.
-
+	writeln(p_f).
 p :-
 	writeln(p_g),
 	call(q),
@@ -22,13 +20,6 @@ q :-
 	writeln(X),
 	shift(bar(Y)),
 	writeln(Y).
-other :-
-    reset(p, foo(3), Cont),
-    reset(p, foo(3), FooCont),
-    reset(FooCont, bar(4), BarCont),
-    call(BarCont),
-    reset(Cont, bar(4), Final),
-    call(Final).
 
 
 
