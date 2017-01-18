@@ -50,17 +50,33 @@ setval(Context, Name, _) :-
 	      'In context ~w value ~w has multiple sources',
 	      [Context, Name]).
 setval(Context, Name, Val) :-
+	debug(bt(valuator, setval), '~w: ~w <- ~w', [Context, Name, Val]),
 	asserta(val(Context, Name, Val)).
 
 getval(Context, Name, Val) :-
-	val(Context, Name, Val).
+	val(Context, Name, Val),
+	debug(bt(valuator, getval), '~w: ~w returns ~w', [Context, Name, Val]).
+
 
 lastval(Context, Name, Val) :-
-	old_val(Context, Name, Val).
+	old_val(Context, Name, Val),
+	debug(bt(valuator, lastval),
+	      '~w: ~w returns lastval ~w', [Context, Name, Val]).
 % lastval questionable design decision that this doesn't also use the
 % current val if the previous one isn't avail
 
 
 ezval(Context, Name, Val) :-
-	val(Context, Name, Val).
-ezval(_, _, '$not_avail$').
+	val(Context, Name, Val),
+	debug(bt(valuator, lastval),
+	      '~w: ~w returns ezval ~w', [Context, Name, Val]).
+ezval(Context, Name, '$not_avail$') :-
+	debug(bt(valuator, lastval),
+	      '~w: ~w returns ezval ~w', [Context, Name, '$not_avail$']).
+
+
+:-listen(simulation_starting, reset).
+
+reset :-
+	retractall(val(_, _, _)),
+	retractall(old_val(_, _, _)).

@@ -32,7 +32,7 @@ bt_([BTStatement | BT]) -->
     d('got statement', [BTStatement]),
     ws,
     bt_(BT).
-bt_([]) --> ws, eos.
+bt_([]) --> ws, eos,!.
 bt_([BT]) -->
 	d('in bt_ error', []),
     ws,

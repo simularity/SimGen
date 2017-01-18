@@ -30,10 +30,12 @@ system:term_expansion(define_bt(X), X) :- write('term expands to:'),portray_clau
 use_bt(Path) :-
 %	context_module(Module),
 	reset_nodes_for_module(behavior_tree),
+	list_all_nodes,
 	absolute_file_name(Path, File),
 	atom_concat(File, '.bt', AbsPath),
 	phrase_from_file(behavior_tree_syntax:bt_dcg(Result), AbsPath, []),
 	define_bt(List) = Result,
+	!,
 	call_all(List).
 
 call_all([]).
@@ -43,6 +45,10 @@ call_all([Unbound | Tail]) :-
 call_all([ ':-'(Term) | Tail]) :-
 	call(Term),
 	call_all(Tail).
+
+list_all_nodes :-
+	findall(node_(M,H,O,A,C), bt_impl:node_(M,H,O,A,C), List),
+	print_term(List, []).
 
 		 /*******************************
 		 *	     Quasiquoter        *

@@ -23,4 +23,5 @@ reset_guards :- retractall(guard_(_, _)).
 :-listen(simulation_starting, reset).
 
 reset :-
-	retractall(guard_(_, _)).
+	reset_guards.
+

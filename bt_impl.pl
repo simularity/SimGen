@@ -59,12 +59,12 @@ set_current_bt_module :-
 
 %!	reset_nodes_for_module(+Module:atom) is det
 %
-%	reset the nodes for the passed in module
+%	reset ALL nodes - for the moment we dont have modules
 %
 %       Users usually won't call this, it's for the compiler
 %
-reset_nodes_for_module(Module) :-
-	retractall(node_(Module, _, _, _, _)).
+reset_nodes_for_module(_Module) :-
+	retractall(bt_impl:node_(_, _, _, _, _)).
 
 %! def_node(+Head:atom, +Oper:atom, +Args:args, +Children:list) is det
 %
@@ -146,7 +146,10 @@ start_simulation(StartTime, TimeUnit, TickLength, External) :-
 	new_clock(simgen, StartTime),
 	empty_queues,
 	broadcast(simulation_starting),
-	do_ticks(External),
+	(   do_ticks(External)
+	;   debug(error(simulation, simulation_failed),
+		  'simulation failed', [])
+	),
 	!.  % make it steadfast
 
 %!	end_simulation is det
@@ -161,7 +164,10 @@ end_simulation :-
 	thread_send_message(simgen, end_simulation).
 
 start_context(Root, Context, Time) :-
-	thread_send_message(simgen, new_clock(Context, Time)),
+	new_clock(Context, Time),
+	% direct call above
+	% needed to cure timing bug where we broadcast values on
+	% nonexistant clock
 	thread_send_message(simgen, start_node(Context-Root)).
 
 		 /*******************************
