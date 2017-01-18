@@ -120,6 +120,11 @@ call_if_avail(Goal, A, B) :-
 	B \= '$not_avail$',
 	call(Goal).
 
+/*
+eval_rval(C, GetFunctor, eval(wander(V, Lo, Hi, Dist)) , Value) :-
+	gtrace,
+	fail.
+*/
 eval_rval(C, GetFunctor, RVal , Value) :-
 	RVal =.. [F, A, B],
 	eval_rval(C, GetFunctor, A, AVal),
@@ -172,10 +177,13 @@ do_func(_, levy_flight, [LastVal, Lo, Hi], Val) :-
 	levy_flight(LastValMapped, NewValMapped),
 	map64k(Val, Lo, Hi, NewValMapped).
 do_func(_, wander, [LastVal, Lo, Hi, Dist], Val) :-
+	debug(bt(flow,wander), 'in wander ~w, ~w, ~w, ~w',
+	      [LastVal, Lo, Hi, Dist]),
 	Bias is 2 * (LastVal - Lo) / (Hi - Lo) ,
 	random(R),
 	Del is 2 * Dist * R - Dist * Bias,
-	Val is min(Hi, max(Lo, LastVal + Del)).
+	Val is min(Hi, max(Lo, LastVal + Del)),
+	debug(bt(flow,wander), 'out', []).
 do_func(Context, clock, [], Val) :-
 	debug(bt(flow,clock), 'function clock(~w)', [Context]),
 	get_clock(Context, Val).

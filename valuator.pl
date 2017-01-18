@@ -7,12 +7,21 @@
 		    ezval/3]).
 
 valuator :-
+	valuator(20).
+
+valuator(0) :-
+	debug(error(valuator, circular), '***** Valuator cannot resolve after 20 cycles', []),
+	bt_impl:end_simulation.
+valuator(N) :-
+	N > 0,
 	broadcast_request(more),
 	!,
 	broadcast(propagate),
 	!,
-	valuator.
-valuator.
+	NN is N - 1,
+	valuator(NN).
+valuator(N) :-
+	N > 0.
 
 :- dynamic val/3, old_val/3.
 
