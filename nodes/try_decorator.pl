@@ -22,12 +22,13 @@ bt_impl:make_cn_impl(try, C-N, CParent-NParent) :-
 	emit(starting(C-N)),
 	start_child(C-N).
 
+% start the only child of C-N, which is a try decorator
 start_child(C-N) :-
 	bt_impl:node_(_M, N, try, _Args, [Kiddo]),
 	make_cn(C-Kiddo, C-N),
 	% stop the parent if the child stops
-	listen(C-Parent, stopped(C-Kiddo, Reason),
-	       stop_me(C-Parent, Reason)).
+	listen(C-N, stopped(C-Kiddo, Reason),
+	       stop_me(C-N, Reason)).
 
 stop_me(C-N, How) :-
 	member(How, [fail, done]),

@@ -144,6 +144,7 @@ start_simulation(StartTime, TimeUnit, TickLength, External) :-
 	abolish_clocks(_),
 	clock_units(TimeUnit, TickLength),
 	new_clock(simgen, StartTime),
+	empty_queues,
 	broadcast(simulation_starting),
 	do_ticks(External),
 	!.  % make it steadfast
@@ -197,6 +198,13 @@ Queue to buffer messages to make agent-like behavior
 		  ),
 		  message_queue_create(_, [alias(u)]).
 
+empty_queues :-
+	thread_get_message(u, _, [timeout(0)]),
+	empty_queues.
+empty_queues :-
+	thread_get_message(simgen, _, [timeout(0)]),
+	empty_queues.
+empty_queues.
 
 do_ticks(_External) :-
 	end_simulation_message_exists.
@@ -263,5 +271,7 @@ emit(Msg) :-
 bad_thing_happened :-
 	true.
 
-show_debug.
+show_debug :-
+	get_clock(simgen, Time),
+	debug(bt(ticks, tick), '@@@@@ Tick! ~w', [Time]).
 

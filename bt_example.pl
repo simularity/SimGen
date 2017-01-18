@@ -89,7 +89,7 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 % those.
 :- listen(stopped(Context-Type, done),
 	  (   get_clock(simgen, Time),
-	      (	  ground(Type) ; gtrace),
+	      (	  ground(Type) ; gtrace),   % DEBUG
 	      write_event(text, Time, Context, Type, success)
 	  )
 	 ).

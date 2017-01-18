@@ -60,15 +60,22 @@ tick_end(C-N) :-
 
 has_more(C-N) :-
 	to_do(C-N, ToDo),
-	ToDo \= [].
+	ToDo \= [],
+	debug(bt(flow,propagate), '~w-~w needs more', [C,N]).
 
 propagate(C-N) :-
 	to_do(C-N, List),
+	debug(bt(flow,propagate),
+	      'propagating ~w-~w tasks ~w',
+	      [C,N,List]),
 	(   List = []
 	;   eval(C, List, NewList),
 	    retractall(to_do(C-N, _)),
 	    asserta(to_do(C-N, NewList))
-	).
+	),
+	to_do(C-N, L), % is this not working because I'm in logical view?
+	debug(bt(flow,propagate),
+	      'after list is ~w', [L]).
 
 		 /*******************************
 		 * Continuous evaluator
@@ -121,7 +128,7 @@ eval_rval(C, GetFunctor, RVal , Value) :-
 eval_rval(C, GetFunctor, -A , Value) :-
 	eval_rval(C, GetFunctor, A, AVal),
 	Value is -AVal.
-eval_rval(C, GetFunctor, eval(C, RVal) , Value) :-
+eval_rval(C, GetFunctor, eval(RVal) , Value) :-
 	RVal =.. [F | Args],
 	get_functor_ok(GetFunctor, F),
 	maplist(eval_rval(C, GetFunctor), Args, ArgVals),
@@ -188,6 +195,9 @@ levy_flight(LastVal, NewVal) :-
 
 levy_flight(V, V, 0).
 levy_flight(LastVal, Val, Bit) :-
+	debug(bt(flow, levy_flight),
+	      'levy_flight(~w, ~w, ~w)',
+	      [LastVal, Val, Bit]),
 	random_between(0,1, Flip),
 	(   Flip =:= 0
 	->  NewVal is LastVal /\ xor(0xffff , Bit)
