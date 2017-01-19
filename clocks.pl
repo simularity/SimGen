@@ -4,7 +4,8 @@
 		  update_clocks/0,
 		  get_clock/2]).
 
-:- use_module(bt_impl, [bad_thing_happened/0]).
+:- use_module(simgen(bt_impl), [bad_thing_happened/0]).
+:- use_module(simgen(print_system)).
 
 :- dynamic clock/2, time_unit/1, tick_length/1.
 
@@ -14,10 +15,12 @@ abolish_clocks(Name) :-
 new_clock(Name, _Start) :-
 	clock(Name, _),
 	!,
-	debug(bt(clock), 'Error, attempt to create duplicate clock ~w', [Name]),
+	bt_debug(bt(clock, duplicate_clock), 'Error, attempt to create duplicate clock ~w', [Name]),
 	bad_thing_happened.
 new_clock(Name, Start) :-
+	bt_debug(bt(clock, new_clock), 'created clock ~w ~w', [Name, Start]),
 	asserta(clock(Name, Start)).
+
 /** <module> Clock related bt stuff
  *
  */

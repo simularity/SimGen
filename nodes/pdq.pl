@@ -4,6 +4,7 @@
 
 :- use_module(bt_impl, [emit/1]).
 :- use_module(valuator).
+:- use_module(simgen(print_system)).
 
 :-listen(simulation_starting, reset).
 
@@ -61,11 +62,11 @@ tick_end(C-N) :-
 has_more(C-N) :-
 	to_do(C-N, ToDo),
 	ToDo \= [],
-	debug(bt(flow,propagate), '~w-~w needs more', [C,N]).
+	bt_debug(bt(flow,propagate), '~w-~w needs more', [C,N]).
 
 propagate(C-N) :-
 	to_do(C-N, List),
-	debug(bt(flow,propagate),
+	bt_debug(bt(flow,propagate),
 	      'propagating ~w-~w tasks ~w',
 	      [C,N,List]),
 	(   List = []
@@ -74,7 +75,7 @@ propagate(C-N) :-
 	    asserta(to_do(C-N, NewList))
 	),
 	to_do(C-N, L), % is this not working because I'm in logical view?
-	debug(bt(flow,propagate),
+	bt_debug(bt(flow,propagate),
 	      'after list is ~w', [L]).
 
 		 /*******************************
@@ -107,10 +108,10 @@ conds_(C, [H | T]) :-
 	!,
         Compo =.. [CompareOp, LeftVal, RightVal],
 	call_if_avail(Compo, LeftVal, RightVal),
-	debug(bt(ticks, cond), 'cond ~w ~w ~w passed', [CompareOp, LeftVal, RightVal]),
+	bt_debug(bt(ticks, cond), 'cond ~w ~w ~w passed', [CompareOp, LeftVal, RightVal]),
 	conds(C, T).
 conds_(C, [H | _]) :-
-	debug(bt(ticks, cond), 'context ~w cond ~w failed', [C, H]),
+	bt_debug(bt(ticks, cond), 'context ~w cond ~w failed', [C, H]),
 	fail.
 
 call_if_avail(_, '$not_avail$', _).
@@ -145,7 +146,7 @@ eval_rval(C, GetFunctor, eval(C, F), Value) :-
 	 ;  get_functor_ok(Legal, F),
 	    gf_name_symbol(GetFunctor, GetFunctorSymbol),
 	    gf_name_symbol(Legal, LegalSymbol),
-	    debug(error(pdq, bad_get), 'Illegal to use ~w in ~w, try ~w',
+	    bt_debug(error(pdq, bad_get), 'Illegal to use ~w in ~w, try ~w',
 		  [GetFunctorSymbol, F, LegalSymbol]),
 	    Value = 0
 	).
@@ -177,15 +178,15 @@ do_func(_, levy_flight, [LastVal, Lo, Hi], Val) :-
 	levy_flight(LastValMapped, NewValMapped),
 	map64k(Val, Lo, Hi, NewValMapped).
 do_func(_, wander, [LastVal, Lo, Hi, Dist], Val) :-
-	debug(bt(flow,wander), 'in wander ~w, ~w, ~w, ~w',
+	bt_debug(bt(flow,wander), 'in wander ~w, ~w, ~w, ~w',
 	      [LastVal, Lo, Hi, Dist]),
 	Bias is 2 * (LastVal - Lo) / (Hi - Lo) ,
 	random(R),
 	Del is 2 * Dist * R - Dist * Bias,
 	Val is min(Hi, max(Lo, LastVal + Del)),
-	debug(bt(flow,wander), 'out', []).
+	bt_debug(bt(flow,wander), 'out', []).
 do_func(Context, clock, [], Val) :-
-	debug(bt(flow,clock), 'function clock(~w)', [Context]),
+	bt_debug(bt(flow,clock), 'function clock(~w)', [Context]),
 	get_clock(Context, Val).
 
 map64k(N, Lo, Hi, Mapped) :-
@@ -203,7 +204,7 @@ levy_flight(LastVal, NewVal) :-
 
 levy_flight(V, V, 0).
 levy_flight(LastVal, Val, Bit) :-
-	debug(bt(flow, levy_flight),
+	bt_debug(bt(flow, levy_flight),
 	      'levy_flight(~w, ~w, ~w)',
 	      [LastVal, Val, Bit]),
 	random_between(0,1, Flip),

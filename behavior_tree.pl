@@ -6,9 +6,12 @@
 /** <module> Behavior Trees
  *
  */
+user:file_search_path(nodes, 'nodes/').
+user:file_search_path(simgen, '.').
 
 :- use_module(library(quasi_quotations)).
-:- use_module(behavior_tree_parser).
+:- use_module(simgen(print_system)).
+:- use_module(simgen(behavior_tree_parser)).
 
 :- quasi_quotation_syntax(behavior_tree:bt).
 
@@ -65,11 +68,11 @@ bt(Content, SyntaxArgs, VariableNames, Result) :-
     !.
 
 bt_(Content, _SyntaxArgs, _VariableNames, Result) :-
-	debug(bt, 'bt in ~w', [Content]),
+	bt_debug(bt(quasiquoter, in), 'bt in ~w', [Content]),
     catch(
        phrase_from_quasi_quotation(bt_dcg(Result), Content),
 	Catcher,
-	(   my_print_message(error, error(bt_syntax_error(parser_failed, Catcher))),
+	(   bt_print_message(error, error(bt_syntax_error(parser_failed, Catcher))),
 	    Result= define_bt([':-'(true)])
 	)
     ),
@@ -77,14 +80,14 @@ bt_(Content, _SyntaxArgs, _VariableNames, Result) :-
     % if we have errors we may have vars in Result
     % this locks up the quasiquoter, and hence swipl
     ground(Result),  % otherwise quasiquoter locks up.
-    debug(bt, 'bt out ~w', [Result]).
+    bt_debug(bt(quasiquoter, out), 'bt out ~w', [Result]).
 bt_(_, _, _, define_bt([':-'(true)])).  % make sure we never fail
 
 user:message_hook(load_file(Data), _, _) :-
 	Data = start(_, file(_Path, FullPath)),
 	module_property(Module, file(FullPath)),
 	reset_nodes_for_module(Module),
-	debug(bt, 'reset ~w nodes', [Module]).
+	bt_debug(bt(quasiquoter, message_hook), 'reset ~w nodes', [Module]).
 
 /* TODO removed until I can make it work
 system:term_expansion(end_of_file, [:-(bt_impl:check_nodes), end_of_file]).

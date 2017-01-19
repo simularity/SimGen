@@ -3,6 +3,7 @@
 :- dynamic running/1.
 
 :- use_module(bt_impl, [make_cn/2, emit/1]).
+:- use_module(simgen(print_system)).
 
 :-listen(simulation_starting, reset).
 
@@ -38,7 +39,7 @@ run_random(C-N, Select, [A |T], [_ | Kids]) :-
 	NS is Select - A,
 	run_random(C-N, NS, T, Kids).
 run_random(C-N, _, [], _) :-
-	print_message(warning, bt_nonfatal_error(node_error(no_child_to_run), culprit(C-N))).
+	bt_print_message(warning, bt_nonfatal_error(node_error(no_child_to_run), culprit(C-N))).
 
 start_this(C-ToStart, C-Parent) :-
 	% start one of the children

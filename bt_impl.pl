@@ -21,8 +21,6 @@
  *
  * Agent based version
 */
-user:file_search_path(nodes, 'nodes/').
-user:file_search_path(simgen, '.').
 
 :- use_module(simgen(clocks)).
 :- use_module(simgen(valuator)).
@@ -34,6 +32,7 @@ user:file_search_path(simgen, '.').
 :- use_module(nodes(clear_guard)).
 :- use_module(nodes(sequence)).
 :- use_module(nodes(try_decorator)).
+:- use_module(simgen(print_system)).
 
 		 /*******************************
 		 * Compilation support          *
@@ -53,7 +52,7 @@ user:file_search_path(simgen, '.').
 %	It's for the compiler
 %
 set_current_bt_module :-
-	debug(bt(compile, node), 'in set_current_bt_module\n', []),
+	bt_debug(bt(compile, node), 'in set_current_bt_module\n', []),
 	context_module(Module),
 	nb_setval(current_bt_module, Module).
 
@@ -86,15 +85,15 @@ def_node(Head, _, _, _) :-
 	gtrace,
 	!,
 	line_count(current_input, Line),
-	debug(error(compile, multiply_defined_node),
+	bt_debug(error(compile, multiply_defined_node),
 	      '~w is multiply defined on line ~d.', [Head, Line]).
 def_node(Head, Oper, Args, Children) :-
 	\+ node_(_, Head, _, _, _),
-	debug(bt(compile, node), 'node ~w ~w ~w ~w~n',
+	bt_debug(bt(compile, node), 'node ~w ~w ~w ~w~n',
 	      [Head, Oper, Args, Children]),
 	nb_getval(current_bt_module, Module),
 	assertz(node_(Module, Head, Oper, Args, Children)),
-	debug(bt(compile, node), 'asserted~n', []).
+	bt_debug(bt(compile, node), 'asserted~n', []).
 
 %!	check_nodes is semidet
 %
@@ -122,7 +121,7 @@ check_def(Node) :-
 
 print_no_def(Node, Head) :-
 	format(atom(Msg), 'Node ~w is used in node ~w but is not defined', [Node, Head]),
-	print_message(error, error(existance_error(procedure, Node),
+	bt_print_message(error, error(existance_error(procedure, Node),
 					      context(node:Head, Msg))).
 
 		 /*******************************
@@ -147,7 +146,7 @@ start_simulation(StartTime, TimeUnit, TickLength, External) :-
 	empty_queues,
 	broadcast(simulation_starting),
 	(   do_ticks(External)
-	;   debug(error(simulation, simulation_failed),
+	;   bt_debug(error(simulation, simulation_failed),
 		  'simulation failed', [])
 	),
 	!.  % make it steadfast
@@ -279,5 +278,5 @@ bad_thing_happened :-
 
 show_debug :-
 	get_clock(simgen, Time),
-	debug(bt(ticks, tick), '@@@@@ Tick! ~w', [Time]).
+	bt_debug(bt(ticks, tick), '@@@@@ Tick! ~w', [Time]).
 

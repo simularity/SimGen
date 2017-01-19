@@ -1,0 +1,23 @@
+
+/*
+    Test of everything implemented so far
+*/
+
+testall ->
+  try_test_op_priority,
+  try_test_immediate_fail_pdq,
+  try_test_levy_flight,
+  try_test_wander,
+  try_test_subtract_negate,
+  try_test_boundary,
+  try_test_all_operators,
+  try_test_various_assignment.
+
+try_test_op_priority try test_op_priority.
+test_op_priority !
+  x = 0
+;
+  x := x + 2 + 2 * 3
+;
+  x < 50.
+

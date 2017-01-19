@@ -1,5 +1,4 @@
-:- module(behavior_tree_syntax, [bt_dcg//1,
-				my_print_message/2]).
+:- module(behavior_tree_syntax, [bt_dcg//1]).
 /** <module> Concrete syntax parser for behavior trees
 
 */
@@ -13,12 +12,9 @@ license:license(simularity, proprietary,
 :- license(simularity).
 
 :- use_module(library(dcg/basics)).
+:- use_module(simgen(print_system)).
 
-my_print_message(Type, Err) :-
-	gtrace,
-	format('This ~w thing happened. ~w~n', [Type, Err]).
-
-d(Format, Args) --> {debug(bt, Format, Args)}, [].
+d(Format, Args) --> {bt_debug(bt(parser, info), Format, Args)}, [].
 
 bt_dcg(define_bt([':-'(true)])) --> eos.
 bt_dcg(define_bt([':-'(set_current_bt_module) | BT])) -->
@@ -49,7 +45,7 @@ bt_error -->
 	  line_count(current_input, Line),
 	  line_position(current_input, Pos),
 	  source_file(File),
-	  my_print_message(error, error(syntax_error(AC),
+	  bt_print_message(error, error(syntax_error(AC),
 				     context(err(AC:Line:Pos:File))))
 	}.
 

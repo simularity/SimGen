@@ -6,11 +6,13 @@
 		    lastval/3,
 		    ezval/3]).
 
+:- use_module(simgen(print_system)).
+
 valuator :-
 	valuator(20).
 
 valuator(0) :-
-	debug(error(valuator, circular), '***** Valuator cannot resolve after 20 cycles', []),
+	bt_debug(error(valuator, circular), '***** Valuator cannot resolve after 20 cycles', []),
 	bt_impl:end_simulation.
 valuator(N) :-
 	N > 0,
@@ -46,21 +48,21 @@ broadcast_values :-
 setval(Context, Name, _) :-
 	val(Context, Name, _),
 	!,
-	debug(error(valuator, multiple_sources),
+	bt_debug(error(valuator, multiple_sources),
 	      'In context ~w value ~w has multiple sources',
 	      [Context, Name]).
 setval(Context, Name, Val) :-
-	debug(bt(valuator, setval), '~w: ~w <- ~w', [Context, Name, Val]),
+	bt_debug(bt(valuator, setval), '~w: ~w <- ~w', [Context, Name, Val]),
 	asserta(val(Context, Name, Val)).
 
 getval(Context, Name, Val) :-
 	val(Context, Name, Val),
-	debug(bt(valuator, getval), '~w: ~w returns ~w', [Context, Name, Val]).
+	bt_debug(bt(valuator, getval), '~w: ~w returns ~w', [Context, Name, Val]).
 
 
 lastval(Context, Name, Val) :-
 	old_val(Context, Name, Val),
-	debug(bt(valuator, lastval),
+	bt_debug(bt(valuator, lastval),
 	      '~w: ~w returns lastval ~w', [Context, Name, Val]).
 % lastval questionable design decision that this doesn't also use the
 % current val if the previous one isn't avail
@@ -68,10 +70,10 @@ lastval(Context, Name, Val) :-
 
 ezval(Context, Name, Val) :-
 	val(Context, Name, Val),
-	debug(bt(valuator, lastval),
+	bt_debug(bt(valuator, lastval),
 	      '~w: ~w returns ezval ~w', [Context, Name, Val]).
 ezval(Context, Name, '$not_avail$') :-
-	debug(bt(valuator, lastval),
+	bt_debug(bt(valuator, lastval),
 	      '~w: ~w returns ezval ~w', [Context, Name, '$not_avail$']).
 
 
