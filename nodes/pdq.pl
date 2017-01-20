@@ -17,7 +17,9 @@ reset :-
 
 bt_impl:make_cn_impl( '!' , C-N, _-_) :-
 	running(C-N),
-	!.
+	!,
+	bt_debug(bt(pdq, make_cn_impl),
+		 '~w-~w already running', [C,N]).
 bt_impl:make_cn_impl( '!' , C-N, CParent-NParent) :-
 	asserta(running(C-N)),
 	listen(C-N, terminate(C-N), pdq:terminate(C-N)),
@@ -27,6 +29,7 @@ bt_impl:make_cn_impl( '!' , C-N, CParent-NParent) :-
 	listen(C-N, more, has_more(C-N)),
 	listen(C-N, propagate, propagate(C-N)),
 	listen(C-N, tick_end, tick_end(C-N)),
+	bt_debug(bt(pdq, make_cn_impl), 'start ~w-~w', [C,N]),
 	emit(starting(C-N)).
 
 stop_me(C-N, How) :-
@@ -34,11 +37,14 @@ stop_me(C-N, How) :-
 	retractall(to_do(C-N, _)),
 	retractall(first_tick_done(C-N)),
 	retractall(running(C-N)),
+	bt_debug(bt(pdq, stop_me), 'stop ~w-~w', [C,N]),
 	emit(stopped(C-N, How)).
 
 terminate(C-N) :-
 	unlisten(C-N, _, _),
 	retractall(running(C-N)),
+	retractall(to_do(C-N, _)),
+	retractall(first_tick_done(C-N)),
 	emit(stopped(C-N, terminated)).
 
 tick_start(C-N) :-

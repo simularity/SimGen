@@ -37,7 +37,6 @@ bt_([BT]) -->
     ws,
     bt_(BT).
 
-
 bt_error -->
 	string(OopsCodes),
 	(   "." ; eos),
@@ -106,7 +105,10 @@ bt_operator( set ) --> "set".   % set condition
 bt_operator( clear ) --> "clear". % clear condition
 bt_operator( '->' ) --> "->". % sequence
 bt_operator( try ) --> "try". % try (always succeed)
+bt_operator( dur ) --> "dur". % duration
 
+bt_args( dur, [Dur], []) -->
+	ws, number(Dur).
 bt_args( try, [], [Child]) --> a_child(Child).
 bt_args( '->', [], Children) --> nonempty_child_list(Children).
 bt_args( '?' , [Cond], []) -->  an_atom(Cond).

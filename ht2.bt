@@ -3,7 +3,8 @@ testall ->
   try_test_op_priority,
   try_test_immediate_fail_pdq,
   try_test_levy_flight,
-  try_test_op_priority.
+  try_taco,
+  try_buffalo.
 
 try_test_op_priority try test_op_priority.
 test_op_priority !
@@ -27,11 +28,27 @@ try_test_levy_flight try test_levy_flight.
 test_levy_flight !
  xb = 0
 ;
- xb := levy_flight(xb, -100, 100)
+ xb := xb + 5
 ;
  xb > -80,
  xb < 80
 .
 
 
+try_taco try taco.
+taco !
+ taco = 0
+;
+ taco := taco + 1
+;
+ taco < 5.
+
+try_buffalo try buffalo.
+buffalo !
+ buff = 0
+; 
+ buff := buff + 1
+;
+ buff < 7
+.
 

@@ -3,6 +3,7 @@
 :- dynamic running/2.
 
 :- use_module(bt_impl, [make_cn/2, emit/1]).
+:- use_module(simgen(print_system)).
 
 :-listen(simulation_starting, reset).
 
@@ -13,7 +14,9 @@ reset :-
 
 bt_impl:make_cn_impl('->' , C-N, _-_) :-
 	running(C-N, _),
-	!.
+	!,
+	bt_debug(bt(sequence, make_cn_impl),
+		 '~w-~w already running', [C,N]).
 bt_impl:make_cn_impl('->', C-N, CParent-NParent) :-
 	bt_impl:node_(_M, N, '->', _A, [FirstChild | RestOfChildren]),
 	emit(starting(C-N)),
@@ -21,6 +24,9 @@ bt_impl:make_cn_impl('->', C-N, CParent-NParent) :-
 	listen(C-N, terminate(C-N), sequence:terminate(C-N)),
 	listen(C-N, terminate_if_child(CParent-NParent),
 	       sequence:terminate(C-N)),
+	bt_debug(bt(sequence, make_cn_impl),
+		 'Starting sequence ~w-~w and child ~w',
+		 [C,N, FirstChild]),
 	start_a_child(C-N, FirstChild).
 
 start_a_child(C-N, Child) :-
@@ -29,18 +35,28 @@ start_a_child(C-N, Child) :-
 	listen(C-N, stopped(C-Child, Reason),
 	       next_child(C-N, Reason)).
 
-next_child(_, terminated).
+next_child(C-N, terminated) :-
+        bt_debug(bt(sequence, terminated), '~w-~w terminated', [C,N]).
 next_child(C-N, fail) :-
+	bt_debug(bt(sequence, next_child),
+		 '~w-~w says current child failed',
+		 [C,N]),
 	unlisten(C-N, _, _),
 	retractall(running(C-N, _)),
 	emit(stopped(C-N, fail)).
 next_child(C-N, done) :-
 	running(C-N, []),
+	bt_debug(bt(sequence, next_child),
+		 '~w-~w says current child done with no more children',
+		 [C,N]),
 	unlisten(C-N, _, _),
 	retractall(running(C-N, _)),
 	emit(stopped(C-N, done)).
 next_child(C-N, done) :-
 	running(C-N, [H | T]),
+	bt_debug(bt(sequence, next_child),
+		 '~w-~w says current child done, will run ~w',
+		 [C,N,H]),
 	retractall(running(C-N, _)),
 	asserta(running(C-N, T)),
 	make_cn(C-H, C-N),
@@ -48,6 +64,9 @@ next_child(C-N, done) :-
 	listen(C-N, stopped(C-H, Reason), next_child(C-N, Reason)).
 
 terminate(C-N) :-
+	bt_debug(bt(sequence, terminated),
+	   '~w-~w is being terminated',
+		 [C,N]),
 	unlisten(C-N, _, _),
 	emit(terminate_if_child(C-N)),
 	retractall(running(C-N, _)),

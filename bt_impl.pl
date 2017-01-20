@@ -21,9 +21,12 @@
  *
  * Agent based version
 */
+user:file_search_path(nodes, 'nodes/').
+user:file_search_path(simgen, '.').
 
 :- use_module(simgen(clocks)).
 :- use_module(simgen(valuator)).
+:- use_module(simgen(print_system)).
 :- use_module(nodes(random_selector)).
 :- use_module(nodes(pdq)).
 :- use_module(nodes(check_guard)).
@@ -32,7 +35,7 @@
 :- use_module(nodes(clear_guard)).
 :- use_module(nodes(sequence)).
 :- use_module(nodes(try_decorator)).
-:- use_module(simgen(print_system)).
+:- use_module(nodes(dur)).
 
 		 /*******************************
 		 * Compilation support          *
@@ -214,7 +217,6 @@ empty_queues.
 do_ticks(_External) :-
 	end_simulation_message_exists.
 do_ticks(External) :-
-	update_clocks,
 	get_clock(simgen, Time),
 	% this is for external prolog
 	ignore(broadcast_request(tick(External, Time, NewExtern))),
@@ -227,6 +229,7 @@ do_ticks(External) :-
 	do_tick_end,
 	empty_u_queue,
 	broadcast_values,
+	update_clocks,
 	show_debug,
 	do_ticks(NewExtern).
 

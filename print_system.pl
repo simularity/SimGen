@@ -34,9 +34,16 @@ bt_debug(Sig, Format, Args) :-
 	Sig \= error(_, _),
 	debug(Sig, Format, Args).
 
-:- bt_debug(bt(_, _)).
+:- multifile
+	system:goal_expansion/2.
 
-:- bt_debug(error(_, _)).
+system:goal_expansion(bt_debug(Topic,_,_), true) :-
+	(   prolog_debug:optimise_debug
+	->  true
+	;   prolog_debug:debug_topic(Topic),
+	    fail
+	).
+
 
 :- multifile prolog:message//1.
 

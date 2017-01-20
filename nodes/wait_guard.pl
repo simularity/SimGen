@@ -19,7 +19,7 @@ bt_impl:make_cn_impl( '-?' , C-N, _-_) :-
 	!.
 bt_impl:make_cn_impl( '?' , C-N, CParent-NParent) :-
 	\+ running(C-N),
-	bt_impl:node_(_, N, '?', [GuardName], _),
+	bt_impl:node_(_, N, '-?', [GuardName], _),
 	\+ guard(C, GuardName),
 	asserta(running(C-N)),
 	listen(C-N, terminate(C-N), terminate(C-N)),

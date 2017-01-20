@@ -6,9 +6,6 @@
 /** <module> Behavior Trees
  *
  */
-user:file_search_path(nodes, 'nodes/').
-user:file_search_path(simgen, '.').
-
 :- use_module(library(quasi_quotations)).
 :- use_module(simgen(print_system)).
 :- use_module(simgen(behavior_tree_parser)).

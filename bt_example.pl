@@ -62,7 +62,8 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 	b_getval(test_root, Root),
 	Extern.add_context_on_tick =< Tick,
 	succ(NN, Extern.next_context),
-	random_between(1, 20, R),
+%	random_between(1, 20, R),
+R = 30,
 	NewTick is R + Tick,
 	NewExtern  = extern{
 			 next_context: NN,
@@ -101,7 +102,7 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 	 ).
 
 write_event(Class, Time, Context, Type, Value) :-
-	Nanos is Time * 60_000_000_000,
+	Nanos is Time * 10_000_000_000,
 	b_getval(test_stream, Stream),
 	format(Stream, 'unit,~d,~d,~w,~w,~w~n',
 	       [Context, Nanos, Class, Type, Value]),

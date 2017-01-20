@@ -1,0 +1,9 @@
+test ->
+ a,
+ b,
+ c.
+
+
+a dur 4.
+b dur 2.
+c dur 4.
