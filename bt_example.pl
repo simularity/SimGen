@@ -26,7 +26,7 @@ test(Root, N) :-
 test(Root, File, N) :-
 	use_bt(File),
 	setup_call_cleanup(
-	    open('tests.csv', write, Stream),
+	    open('tests.simai', write, Stream),
 	    (	b_setval(test_stream, Stream),
 		b_setval(test_root, Root),
 		!, % sanity measure,

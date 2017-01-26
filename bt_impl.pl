@@ -23,6 +23,7 @@
 */
 user:file_search_path(nodes, 'nodes/').
 user:file_search_path(simgen, '.').
+user:file_search_path(examples, 'examples/').
 
 :- use_module(simgen(clocks)).
 :- use_module(simgen(valuator)).
@@ -36,8 +37,12 @@ user:file_search_path(simgen, '.').
 :- use_module(nodes(sequence)).
 :- use_module(nodes(random_sequence)).
 :- use_module(nodes(try_decorator)).
+:- use_module(nodes(fail_decorator)).
+:- use_module(nodes(not_decorator)).
 :- use_module(nodes(dur)).
 :- use_module(nodes(pin_decorator)).
+:- use_module(nodes(parallel)).
+:- use_module(nodes(paraselect)).
 
 		 /*******************************
 		 * Compilation support          *
