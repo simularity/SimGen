@@ -34,8 +34,10 @@ user:file_search_path(simgen, '.').
 :- use_module(nodes(set_guard)).
 :- use_module(nodes(clear_guard)).
 :- use_module(nodes(sequence)).
+:- use_module(nodes(random_sequence)).
 :- use_module(nodes(try_decorator)).
 :- use_module(nodes(dur)).
+:- use_module(nodes(pin_decorator)).
 
 		 /*******************************
 		 * Compilation support          *

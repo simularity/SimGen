@@ -104,13 +104,17 @@ bt_operator( '-?' ) --> "-?".   % wait condition
 bt_operator( set ) --> "set".   % set condition
 bt_operator( clear ) --> "clear". % clear condition
 bt_operator( '->' ) --> "->". % sequence
+bt_operator( '~>' ) --> "~>". % random sequence
 bt_operator( try ) --> "try". % try (always succeed)
 bt_operator( dur ) --> "dur". % duration
+bt_operator( pin ) --> "pin". % emit pin event
 
+bt_args( pin, [], [Child]) --> a_child(Child).
 bt_args( dur, [Dur], []) -->
 	ws, number(Dur).
 bt_args( try, [], [Child]) --> a_child(Child).
 bt_args( '->', [], Children) --> nonempty_child_list(Children).
+bt_args( '~>', [], Children) --> nonempty_child_list(Children).
 bt_args( '?' , [Cond], []) -->  an_atom(Cond).
 bt_args( '-?' , [Cond], []) -->  an_atom(Cond).
 bt_args( set , [Cond], []) -->  an_atom(Cond).

@@ -101,8 +101,13 @@ R = 30,
 	  )
 	 ).
 
+:- listen(pin_drop(Context, Time, event),
+       write_event(text, Time, Context, pin_drop, event)).
+:- listen(pin_drop(Context, Time, -event),
+       write_event(text, Time, Context, pin_drop, '-event')).
+
 write_event(Class, Time, Context, Type, Value) :-
-	Nanos is Time * 10_000_000_000,
+	Nanos is Time * 60_000_000_000,
 	b_getval(test_stream, Stream),
 	format(Stream, 'unit,~d,~d,~w,~w,~w~n',
 	       [Context, Nanos, Class, Type, Value]),
