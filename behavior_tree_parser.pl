@@ -112,7 +112,10 @@ bt_operator( fail ) --> "fail". % fail (always fail)
 bt_operator( not ) --> "not". % not (fail if done, done if fail)
 bt_operator( dur ) --> "dur". % duration
 bt_operator( pin ) --> "pin". % emit pin event
+bt_operator( repeat(fail) ) --> "<>". % loop until failure
+bt_operator( repeat(done) ) --> "<-->". % loop until success
 
+bt_args( repeat(_), [], [Child]) --> a_child(Child).
 bt_args( pin, [], [Child]) --> a_child(Child).
 bt_args( dur, [Dur], []) -->
 	ws, number(Dur).

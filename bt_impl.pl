@@ -43,6 +43,7 @@ user:file_search_path(examples, 'examples/').
 :- use_module(nodes(pin_decorator)).
 :- use_module(nodes(parallel)).
 :- use_module(nodes(paraselect)).
+:- use_module(nodes(repeat_decorator)).
 
 		 /*******************************
 		 * Compilation support          *
@@ -150,6 +151,7 @@ print_no_def(Node, Head) :-
 %	@arg external data for use by event listeners
 %
 start_simulation(StartTime, TimeUnit, TickLength, External) :-
+	unlisten(_-_, _, _),
 	abolish_clocks(_),
 	clock_units(TimeUnit, TickLength),
 	new_clock(simgen, StartTime),
