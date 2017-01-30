@@ -1,0 +1,4 @@
+SimGen is a tool for creating simulated data.
+SimGen is all about making agents that control each other.
+
+

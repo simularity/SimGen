@@ -1,8 +1,8 @@
-:- module(parallel, []).
+:- module(paraselect, []).
 
 :- dynamic running/2.
 
-:- use_module(bt_impl, [make_cn/2, emit/1]).
+:- use_module(simgen(bt_impl), [make_cn/2, emit/1]).
 :- use_module(simgen(print_system)).
 
 :-listen(simulation_starting, reset).
@@ -12,20 +12,20 @@ reset :-
 
 :- multifile bt_impl:make_cn_impl/3.
 
-bt_impl:make_cn_impl('=>' , C-N, _-_) :-
+bt_impl:make_cn_impl('=?' , C-N, _-_) :-
 	running(C-N, _),
 	!,
-	bt_debug(bt(parallel, make_cn_impl),
+	bt_debug(bt(paraselect, make_cn_impl),
 		 '~w-~w already running', [C,N]).
-bt_impl:make_cn_impl('=>', C-N, CParent-NParent) :-
-	bt_impl:node_(_M, N, '=>', _A, Children),
+bt_impl:make_cn_impl('=?', C-N, CParent-NParent) :-
+	bt_impl:node_(_M, N, '=?', _A, Children),
 	emit(starting(C-N)),
 	asserta(running(C-N, Children)),
-	listen(C-N, terminate(C-N), parallel:terminate(C-N)),
+	listen(C-N, terminate(C-N), paraselect:terminate(C-N)),
 	listen(C-N, terminate_if_child(CParent-NParent),
-	       parallel:terminate(C-N)),
-	bt_debug(bt(parallel, make_cn_impl),
-		 'Starting parallel ~w-~w and children ~w',
+	       paraselect:terminate(C-N)),
+	bt_debug(bt(paraselect, make_cn_impl),
+		 'Starting paraselect ~w-~w and children ~w',
 		 [C,N, Children]),
 	start_children(C-N, Children).
 
@@ -43,17 +43,17 @@ start_children(C-N, [Child | Rest]) :-
 %	respond to a child failing by terminating others and reporting
 %	fail
 %
-child_failed(C-N, C-Child) :-
+child_done(C-N, C-Child) :-
 	emit(terminate_if_child(C-N)),
-	bt_debug(bt(parallel, fail), '~w-~w: child ~w-~w failed, failing',
+	bt_debug(bt(paraselect, done), '~w-~w: child ~w-~w done, succeeding',
 		 [C,N,C,Child]),
 	unlisten(C-N, _, _),
 	retractall(running(C-N, _)),
-	emit(stopped(C-N, fail)).
+	emit(stopped(C-N, done)).
 
-child_done(C-N, C-Child) :-
-	bt_debug(bt(parallel, child_done),
-		 '~w-~w: child ~w-~w done',
+child_failed(C-N, C-Child) :-
+	bt_debug(bt(paraselect, child_done),
+		 '~w-~w: child ~w-~w failed',
 		 [C,N,C,Child]),
 	running(C-N, RunningChildren),
 	select(Child, RunningChildren, NewRunningChildren),
@@ -61,7 +61,7 @@ child_done(C-N, C-Child) :-
 	->
 	    unlisten(C-N, _, _),
 	    retractall(running(C-N, _)),
-	    emit(stopped(C-N, done))
+	    emit(stopped(C-N, fail))
 	;
 	    retractall(running(C-N, _)),
 	    asserta(running(C-N, NewRunningChildren))

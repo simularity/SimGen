@@ -2,7 +2,7 @@
 /** <module> Check a guard. Fail when it's reset
  *
  */
-:- use_module(bt_impl, [emit/1]).
+:- use_module(simgen(bt_impl), [emit/1]).
 :- use_module(simgen(guard_manager)).
 
 :- multifile bt_impl:make_cn_impl/3.

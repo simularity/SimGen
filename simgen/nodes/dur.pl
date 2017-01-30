@@ -4,7 +4,7 @@
  */
 :- dynamic running/2.  % C-N, DoneTime (context)
 
-:- use_module(bt_impl, [emit/1]).
+:- use_module(simgen(bt_impl), [emit/1]).
 :- use_module(simgen(guard_manager)).
 :- use_module(simgen(clocks), [get_clock/2]).
 

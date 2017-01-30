@@ -2,7 +2,7 @@
 
 :- dynamic running/2.
 
-:- use_module(bt_impl, [make_cn/2, emit/1]).
+:- use_module(simgen(bt_impl), [make_cn/2, emit/1]).
 :- use_module(simgen(print_system)).
 
 :-listen(simulation_starting, reset).

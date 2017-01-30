@@ -2,5 +2,5 @@
 /** <module> SimGen - Simularity Inc. Simulation Generator
  *
  */
-:- reexport(behavior_tree).
+:- reexport(simgen(behavior_tree)).
 

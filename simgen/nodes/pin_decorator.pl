@@ -10,8 +10,8 @@
 
 :- dynamic running/2. % C-N, StartContextTime
 
-:- use_module(bt_impl, [make_cn/2, emit/1]).
-:- use_module(clocks, [get_clock/2]).
+:- use_module(simgen(bt_impl), [make_cn/2, emit/1]).
+:- use_module(simgen(clocks), [get_clock/2]).
 
 :-listen(simulation_starting, reset).
 

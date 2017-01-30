@@ -2,8 +2,8 @@
 
 :- dynamic running/1, to_do/2, first_tick_done/1.
 
-:- use_module(bt_impl, [emit/1]).
-:- use_module(valuator).
+:- use_module(simgen(bt_impl), [emit/1]).
+:- use_module(simgen(valuator)).
 :- use_module(simgen(print_system)).
 
 :-listen(simulation_starting, reset).
@@ -177,7 +177,7 @@ e( '-', A, B, C) :- C is A - B.
 e( '*', A, B, C) :- C is A * B.
 e( '/', A, B, C) :- C is A / B.
 
-:- use_module(clocks).
+:- use_module(simgen(clocks)).
 
 do_func(_, levy_flight, [LastVal, Lo, Hi], Val) :-
 	map64k(LastVal, Lo, Hi, LastValMapped), % map to range [0-64k)

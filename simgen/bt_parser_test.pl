@@ -3,7 +3,7 @@
  *
  */
 
-:- use_module(behavior_tree_parser).
+:- use_module(simgen(behavior_tree_parser)).
 
 go :-
 	content(Content),

@@ -4,7 +4,7 @@
  */
 :- dynamic running/1.
 
-:- use_module(bt_impl, [emit/1]).
+:- use_module(simgen(bt_impl), [emit/1]).
 :- use_module(simgen(guard_manager)).
 
 :-listen(simulation_starting, reset).

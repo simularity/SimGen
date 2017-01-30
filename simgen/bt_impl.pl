@@ -21,8 +21,33 @@
  *
  * Agent based version
 */
-user:file_search_path(nodes, 'nodes/').
-user:file_search_path(simgen, '.').
+
+path_target.
+% This is required, needed for internal glue.
+% fix it so it points at your simgen directory
+%
+:-
+	source_file(bt_impl:path_target, Path),
+	directory_file_path(Dir, _, Path),
+	absolute_file_name(Dir, AbsPath),  % /SimGen/simgen
+	atomic_list_concat(
+	    [
+	    AbsPath,
+	    '/nodes'], SGP),
+	asserta(user:file_search_path(nodes, SGP)).
+
+
+
+:- dynamic  nodes_path/1, examples_path/1.
+
+:-	absolute_file_name(simgen('nodes/'), Path),
+	asserta(nodes_path(Path)).
+:-	absolute_file_name(simgen('nodes/'), Path),
+	asserta(nodes_path(Path)).
+
+user:file_search_path(nodes, Path) :-
+	nodes_path(Path).
+
 user:file_search_path(examples, 'examples/').
 
 :- use_module(simgen(clocks)).

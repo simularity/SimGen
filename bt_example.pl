@@ -4,8 +4,27 @@
 
  */
 
+path_target.
+% This is required, needed for internal glue.
+% fix it so it points at your simgen directory
+%
+:-
+	source_file(bt_example:path_target, Path),
+	directory_file_path(Dir, _, Path),
+	absolute_file_name(Dir, AbsPath),
+	atomic_list_concat(
+	    [
+	    AbsPath,
+	    '/simgen'], SGP),
+	asserta(user:file_search_path(simgen, SGP)),
+	atomic_list_concat(
+	    [
+	    AbsPath,
+	    '/examples'], SGPE),
+	asserta(user:file_search_path(examples, SGPE)).
+
 % Grab SimGen
-:- use_module(simgen).
+:- use_module(simgen(simgen)).
 
 %!	test(+Root:atom, +N:integer) is nondet
 %
