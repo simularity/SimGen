@@ -44,3 +44,7 @@ update_clock(Name) :-
 
 get_clock(Name, Time) :-
 	clock(Name, Time).
+get_clock(Name, 0) :-
+	\+ clock(Name, _),
+	bt_debug(bt(get_clock, no_clock),
+		 '******* BAD CLOCK ~w', [Name]).

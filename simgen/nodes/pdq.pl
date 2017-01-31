@@ -22,6 +22,8 @@ bt_impl:make_cn_impl( '!' , C-N, _-_) :-
 		 '~w-~w already running', [C,N]).
 bt_impl:make_cn_impl( '!' , C-N, CParent-NParent) :-
 	asserta(running(C-N)),
+	retractall(first_tick_done(C-N)),
+	retractall(to_do(C-N, _)),
 	listen(C-N, terminate(C-N), pdq:terminate(C-N)),
 	listen(C-N, terminate_if_child(CParent-NParent),
 	       pdq:terminate(C-N)),
@@ -45,6 +47,7 @@ terminate(C-N) :-
 	retractall(running(C-N)),
 	retractall(to_do(C-N, _)),
 	retractall(first_tick_done(C-N)),
+	bt_debug(bt(pdq, terminate), 'terminated ~w-~w', [C,N]),
 	emit(stopped(C-N, terminated)).
 
 tick_start(C-N) :-
@@ -221,8 +224,6 @@ levy_flight(LastVal, Val, Bit) :-
 	NewBit is Bit >> 1,
 	levy_flight(NewVal, Val, NewBit).
 
-% TODO make good messages
-%
-%
+
 
 

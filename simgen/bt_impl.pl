@@ -176,7 +176,7 @@ print_no_def(Node, Head) :-
 %	@arg external data for use by event listeners
 %
 start_simulation(StartTime, TimeUnit, TickLength, External) :-
-	unlisten(_-_, _, _),
+	unlisten_all_cn,
 	abolish_clocks(_),
 	clock_units(TimeUnit, TickLength),
 	new_clock(simgen, StartTime),
@@ -303,6 +303,9 @@ make_cn(C-N, CParent-NParent) :-
 
 emit(Msg) :-
 	thread_send_message(u, Msg).
+
+unlisten_all_cn :-
+	forall(listening(C-N, Templ, Goal), unlisten(C-N, Templ, Goal)).
 
 		 /*******************************
 		 * Dev Support

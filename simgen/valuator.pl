@@ -9,9 +9,13 @@
 :- use_module(simgen(print_system)).
 
 valuator :-
-	valuator(20).
+	debug_vals('pre valuator'),
+	valuator(20),
+	debug_vals('post valuator').
 valuator :-
 	bt_debug(error(valuator, fails), '***** Valuator fails',[]),
+	debug_vals('failure'),
+	gtrace,
 	bt_impl:end_simulation.
 
 valuator(0) :-
@@ -30,6 +34,11 @@ valuator(N) :-
 
 :- dynamic val/3, old_val/3.
 
+debug_vals(Msg) :-
+	findall(C-Name-Val, old_val(C, Name, Val), Old),
+	findall(CN-NameN-ValN, val(CN, NameN, ValN), New),
+	bt_debug(bt(valuator, debug_vals),
+		 '#### ~w~nold_val: ~q~nval: ~q', [Msg, Old, New]).
 cycle_values :-
 	findall(asserta(old_val(C, N, V)), val(C,N,V), List),
 	retractall(val(_, _, _)),
