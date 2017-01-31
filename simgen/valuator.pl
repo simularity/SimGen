@@ -10,6 +10,9 @@
 
 valuator :-
 	valuator(20).
+valuator :-
+	bt_debug(error(valuator, fails), '***** Valuator fails',[]),
+	bt_impl:end_simulation.
 
 valuator(0) :-
 	bt_debug(error(valuator, circular), '***** Valuator cannot resolve after 20 cycles', []),
@@ -64,6 +67,10 @@ lastval(Context, Name, Val) :-
 	old_val(Context, Name, Val),
 	bt_debug(bt(valuator, lastval),
 	      '~w: ~w returns lastval ~w', [Context, Name, Val]).
+lastval(Context, Name, 0) :-
+	bt_debug(error(valuator, no_lastval),
+		 '**** Context ~w variable ~w has no last value so cannot be evaluated', [Context, Name]),
+	bt_impl:bad_thing_happened.
 % lastval questionable design decision that this doesn't also use the
 % current val if the previous one isn't avail
 

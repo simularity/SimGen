@@ -15,7 +15,7 @@ abolish_clocks(Name) :-
 new_clock(Name, _Start) :-
 	clock(Name, _),
 	!,
-	bt_debug(bt(clock, duplicate_clock), 'Error, attempt to create duplicate clock ~w', [Name]),
+	bt_debug(error(clock, duplicate_clock), 'Error, attempt to create duplicate clock ~w', [Name]),
 	bad_thing_happened.
 new_clock(Name, Start) :-
 	bt_debug(bt(clock, new_clock), 'created clock ~w ~w', [Name, Start]),

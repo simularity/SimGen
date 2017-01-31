@@ -1,0 +1,59 @@
+/*  
+     Unit tests for bt language
+*/
+
+root ->
+  test_pdq.
+  
+test_pdq ->
+  try_simple_add,
+  gap,
+  try_complex_expr,
+  gap,
+  try_functions
+.
+
+gap dur 5.
+
+try_simple_add try tsa.
+tsa !
+  x = 0
+; 
+  x := x + 1
+;
+  x < 10
+.
+
+try_complex_expr try tce.
+tce !
+  y = 0,
+  z = 2   % this will fail after 2nd cycle because there will be no old z value
+;
+  y := (y + z) / 2 + 1,
+  z := z
+;
+  y < 10
+.
+
+
+try_functions try fun.
+fun !
+  x = 0
+;
+  x := levy_flight(x, -100, 100)
+;
+  x > -80,
+  x < 80
+.
+
+
+
+
+
+  
+
+
+
+
+
+

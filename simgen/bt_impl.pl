@@ -311,7 +311,7 @@ emit(Msg) :-
 % whenever we're in trouble we call this, so there's a convenient place
 % to stick a gtrace
 bad_thing_happened :-
-	true.
+	end_simulation.
 
 show_debug :-
 	get_clock(simgen, Time),

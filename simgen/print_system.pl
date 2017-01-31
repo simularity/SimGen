@@ -27,7 +27,7 @@ bt_print_message(Type, Message) :-
 	).
 
 bt_debug(Sig, Format, Args) :-
-	Sig == error(_, _),
+	Sig = error(_, _),
 	print_message(error, bt_error(Sig, Format, Args)),
 	debug(Sig, Format, Args).
 bt_debug(Sig, Format, Args) :-
