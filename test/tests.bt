@@ -27,10 +27,10 @@ tsa !
 try_complex_expr try tce.
 tce !
   y = 0,
-  z = 2   % this will fail after 2nd cycle because there will be no old z value
+  z = 2 
 ;
   y := (y + z) / 2 + 1,
-  z := z
+  z := z  % otherwise this will fail after 2nd cycle because there will be no old z value
 ;
   y < 10
 .
@@ -45,15 +45,5 @@ fun !
   x > -80,
   x < 80
 .
-
-
-
-
-
-  
-
-
-
-
 
 

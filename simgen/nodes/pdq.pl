@@ -55,18 +55,22 @@ tick_start(C-N) :-
 	retractall(to_do(C-N, _)),
 	(   first_tick_done(C-N)
 	->  asserta(to_do(C-N, OtherTicks))
-	;   asserta(to_do(C-N, FirstTick))
+	;   asserta(to_do(C-N, FirstTick)),
+	    asserta(first_tick_done(C-N))
 	).
 
 tick_end(C-N) :-
-	(   first_tick_done(C-N)
-	;   asserta(first_tick_done(C-N))
-	),
+	first_tick_done(C-N),
+	!,
 	bt_impl:node_(_, N, '!', [_, _, Conds], _),
 	(   conds(C, Conds)
 	->  true
 	;   stop_me(C-N, fail)
 	).
+% always succeed if we haven't done the first tick by end of tick
+% fixes the mystery unavail values
+tick_end(C-N) :-
+	\+ first_tick_done(C-N).
 
 has_more(C-N) :-
 	to_do(C-N, ToDo),
