@@ -110,7 +110,6 @@ prolog_function(epsilon/0).
 prolog_function(inf/0).
 prolog_function(nan/0).
 prolog_function(cputime/0).
-prolog_function(eval/1).
 prolog_function(msb/1).
 prolog_function(lsb/1).
 prolog_function(popcount/1).

@@ -5,6 +5,7 @@
 :- use_module(simgen(bt_impl), [emit/1]).
 :- use_module(simgen(valuator)).
 :- use_module(simgen(print_system)).
+:- use_module(simgen(functions)).
 
 :-listen(simulation_starting, reset).
 
@@ -83,48 +84,46 @@ propagate(C-N) :-
 	      'propagating ~w-~w tasks ~w',
 	      [C,N,List]),
 	(   List = []
-	;   eval(C, List, NewList),
+	;   eval(C-N, List, NewList),
 	    retractall(to_do(C-N, _)),
 	    asserta(to_do(C-N, NewList))
 	),
-	to_do(C-N, L), % is this not working because I'm in logical view?
+	to_do(C-N, L),
 	bt_debug(bt(flow,propagate),
 	      'after list is ~w', [L]).
 
 		 /*******************************
-		 * Continuous evaluator
+		 *      Continuous evaluator
 		 *******************************/
 
-eval(_Context, [], []).
-eval(C, [H | T], Remain) :-
-	(   eval(C, H)
-	->  eval(C, T, Remain)
-	;   eval(C, T, R),
+eval(_CN, [], []).
+eval(C-N, [H | T], Remain) :-
+	(   eval(C-N, H)
+	->  eval(C-N, T, Remain)
+	;   eval(C-N, T, R),
 	    Remain = [H | R]
 	).
 
-eval(C, ':='(LVAL, RVAL)) :-
-	eval_rval(C, lastval, RVAL, Value),
+eval(C-N, ':='(LVAL, RVAL)) :-
+	eval_rval(C-N, lastval, RVAL, Value),
 	setval(C, LVAL, Value).
-eval(C, '='(LVAL, RVAL)) :-
-	eval_rval(C, getval, RVAL, Value),
+eval(C-N, '='(LVAL, RVAL)) :-
+	eval_rval(C-N, getval, RVAL, Value),
 	setval(C, LVAL, Value).
 
-/*     ================= DONE TO HERE FRIDAY 8pm ======== */
-
-conds(C, X) :- once(conds_(C, X)).
+conds(C-N, X) :- once(conds_(C-N, X)).
 conds_(_, []).
-conds_(C, [H | T]) :-
+conds_(C-N, [H | T]) :-
 	H =.. [CompareOp, Left, Right],
-	eval_rval(C, ezval, Left, LeftVal),
-        eval_rval(C, ezval, Right, RightVal),
+	eval_rval(C-N, ezval, Left, LeftVal),
+        eval_rval(C-N, ezval, Right, RightVal),
 	!,
         Compo =.. [CompareOp, LeftVal, RightVal],
 	call_if_avail(Compo, LeftVal, RightVal),
 	bt_debug(bt(ticks, cond), 'cond ~w ~w ~w passed', [CompareOp, LeftVal, RightVal]),
-	conds(C, T).
-conds_(C, [H | _]) :-
-	bt_debug(bt(ticks, cond), 'context ~w cond ~w failed', [C, H]),
+	conds(C-N, T).
+conds_(C-N, [H | _]) :-
+	bt_debug(bt(ticks, cond), 'context ~w cond ~w failed', [C-N, H]),
 	fail.
 
 call_if_avail(_, '$not_avail$', _).
@@ -135,27 +134,27 @@ call_if_avail(Goal, A, B) :-
 	call(Goal).
 
 /*
-eval_rval(C, GetFunctor, eval(wander(V, Lo, Hi, Dist)) , Value) :-
+eval_rval(C-N, GetFunctor, eval(wander(V, Lo, Hi, Dist)) , Value) :-
 	gtrace,
 	fail.
 */
-eval_rval(C, GetFunctor, RVal , Value) :-
+eval_rval(C-N, GetFunctor, RVal , Value) :-
 	RVal =.. [F, A, B],
-	eval_rval(C, GetFunctor, A, AVal),
-	eval_rval(C, GetFunctor, B, BVal),
+	eval_rval(C-N, GetFunctor, A, AVal),
+	eval_rval(C-N, GetFunctor, B, BVal),
 	e(F, AVal, BVal, Value).
-eval_rval(C, GetFunctor, -A , Value) :-
-	eval_rval(C, GetFunctor, A, AVal),
+eval_rval(C-N, GetFunctor, -A , Value) :-
+	eval_rval(C-N, GetFunctor, A, AVal),
 	Value is -AVal.
-eval_rval(C, GetFunctor, eval(RVal) , Value) :-
+eval_rval(C-N, GetFunctor, eval(RVal) , Value) :-
 	RVal =.. [F | Args],
 	get_functor_ok(GetFunctor, F),
-	maplist(eval_rval(C, GetFunctor), Args, ArgVals),
-	do_func(C, F, ArgVals, Value).
-eval_rval(C, GetFunctor, eval(C, F), Value) :-
+	maplist(eval_rval(C-N, GetFunctor), Args, ArgVals),
+	do_func(C-N, F, ArgVals, Value).
+eval_rval(C-N, GetFunctor, eval(C, F), Value) :-
 	atom(F),
 	(   get_functor_ok(GetFunctor, F)
-	->  do_func(C, F, [], Value)
+	->  do_func(C-N, F, [], Value)
 	 ;  get_functor_ok(Legal, F),
 	    gf_name_symbol(GetFunctor, GetFunctorSymbol),
 	    gf_name_symbol(Legal, LegalSymbol),
@@ -164,16 +163,10 @@ eval_rval(C, GetFunctor, eval(C, F), Value) :-
 	    Value = 0
 	).
 eval_rval(_, _, const(Val), Val).
-eval_rval(C, GetFunctor, var(Name), Val) :-
-	!, % Oooh, this might fail (puts fingers in ears)
+eval_rval(C-_N, GetFunctor, var(Name), Val) :-
+	!, % this is nondet
 	Func =.. [GetFunctor, C, Name, Val],
 	call(valuator:Func).
-
-get_functor_ok(lastval, levy_flight).
-get_functor_ok(lastval, wander).
-get_functor_ok(lastval, clock).
-get_functor_ok(getval, clock).
-get_functor_ok(ezval, clock).
 
 gf_name_symbol(getval, '=').
 gf_name_symbol(lastval, ':=').
@@ -183,51 +176,3 @@ e( '+', A, B, C) :- C is A + B.
 e( '-', A, B, C) :- C is A - B.
 e( '*', A, B, C) :- C is A * B.
 e( '/', A, B, C) :- C is A / B.
-
-:- use_module(simgen(clocks)).
-
-do_func(_, levy_flight, [LastVal, Lo, Hi], Val) :-
-	map64k(LastVal, Lo, Hi, LastValMapped), % map to range [0-64k)
-	levy_flight(LastValMapped, NewValMapped),
-	map64k(Val, Lo, Hi, NewValMapped).
-do_func(_, wander, [LastVal, Lo, Hi, Dist], Val) :-
-	bt_debug(bt(flow,wander), 'in wander ~w, ~w, ~w, ~w',
-	      [LastVal, Lo, Hi, Dist]),
-	Bias is 2 * (LastVal - Lo) / (Hi - Lo) ,
-	random(R),
-	Del is 2 * Dist * R - Dist * Bias,
-	Val is min(Hi, max(Lo, LastVal + Del)),
-	bt_debug(bt(flow,wander), 'out', []).
-do_func(Context, clock, [], Val) :-
-	bt_debug(bt(flow,clock), 'function clock(~w)', [Context]),
-	get_clock(Context, Val).
-
-map64k(N, Lo, Hi, Mapped) :-
-	ground(Mapped),
-	N is Lo + (Hi - Lo) * Mapped / 65536.0 .
-map64k(N, Lo, Hi, Mapped) :-
-	ground(N),
-	Mapped is round((N - Lo) * 65536.0 / (Hi - Lo)).
-
-% compute new mapped value from old mapped value
-levy_flight(LastVal, NewVal) :-
-	random_between(0, 0xf, BitsToFlip),
-	Bit is ((1 << BitsToFlip) >> 1),
-	levy_flight(LastVal, NewVal, Bit).
-
-levy_flight(V, V, 0).
-levy_flight(LastVal, Val, Bit) :-
-	bt_debug(bt(flow, levy_flight),
-	      'levy_flight(~w, ~w, ~w)',
-	      [LastVal, Val, Bit]),
-	random_between(0,1, Flip),
-	(   Flip =:= 0
-	->  NewVal is LastVal /\ xor(0xffff , Bit)
-	;   NewVal is LastVal \/ Bit
-	),
-	NewBit is Bit >> 1,
-	levy_flight(NewVal, Val, NewBit).
-
-
-
-
