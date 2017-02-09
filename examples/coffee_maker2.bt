@@ -1,0 +1,59 @@
+coffee_sim =>
+  user,
+  coffee_maker
+.
+
+
+/*         The User             */
+user ->
+  turn_on,
+  wait_for_coffee,
+  drink
+.
+
+turn_on ->
+  wait_some,
+  switch_on
+.
+ 
+wait_some dur 10.
+ 
+switch_on set on
+.
+
+wait_for_coffee wait coffee_ready
+.
+
+/*     The pot            */
+
+coffee_maker ->
+  maker_off,
+  user_turns_on,
+  heat_water,
+  boil,
+  caraffe_heater,
+  making_done
+.
+ 
+boil =>
+  boil_water,
+  filter_coffee
+.
+
+boil_water !
+  w = 100
+;
+  w := w - 5
+;
+  w > 0
+.
+
+filter_coffee !
+ ;
+ ;
+ w > 0
+.
+
+
+
+

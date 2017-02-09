@@ -1,0 +1,31 @@
+coffee_sim =>
+  user,
+  coffee_maker
+.
+
+user ->
+  turn_on,
+  wait_for_coffee,
+  wait_some,
+  drink
+.
+
+turn_on ->
+  wait_some,
+  switch_on
+.
+
+wait_some dur 10.
+
+switch_on set on
+.
+
+wait_for_coffee wait coffee_ready
+.
+
+drink set drink
+.
+
+
+
+
