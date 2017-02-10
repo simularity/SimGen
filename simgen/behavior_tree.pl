@@ -9,7 +9,7 @@
 :- use_module(library(quasi_quotations)).
 :- use_module(simgen(print_system)).
 :- use_module(simgen(behavior_tree_parser)).
-
+:- use_module(simgen(ast_transform)).
 :- quasi_quotation_syntax(behavior_tree:bt).
 
 :- dynamic define_bt/1.  % do I need this? added to deal with .bt files
@@ -35,8 +35,9 @@ use_bt(Path) :-
 	atom_concat(File, '.bt', AbsPath),
 	phrase_from_file(behavior_tree_syntax:bt_dcg(Result), AbsPath, []),
 	define_bt(List) = Result,
+	collect_anons(List, WithAnons), % [':-'(def_node(H,O,A,C))]
 	!,
-	call_all(List).
+	call_all(WithAnons).
 
 call_all([]).
 call_all([Unbound | Tail]) :-

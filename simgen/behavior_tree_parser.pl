@@ -81,7 +81,6 @@ c_body([ 0'*, C | T]) -->
 ...([]) --> [].
 ...([X|T]) --> [X], ...(T) .
 
-
 bt_statement(':-'(def_node(Head, Operator, Args, Children))) -->
 	ws,
 	d('in bt_statement', []),
@@ -343,3 +342,13 @@ nonempty_child_list([Child]) --> ws, an_atom(Child).
 
 a_child(Child) -->
 	an_atom(Child).
+a_child(anon_node(Head, Operator, Args, Children)) -->
+	{ gensym(node, Head) },
+	"{",
+	ws,
+	bt_operator(Operator),
+	ws,
+	bt_args(Operator, Args, Children),
+	ws,
+	"}".
+
