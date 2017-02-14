@@ -6,17 +6,16 @@ root ->
   test_pdq.
   
 test_pdq ->
-  try_simple_add,
+  { try simple_add},
   gap,
-  try_complex_expr,
-  gap,
-  try_functions
+  {try complex_expr },
+  {dur 10},
+  {try functions }
 .
 
 gap dur 5.
 
-try_simple_add try tsa.
-tsa !
+simple_add !
   x = 0
 ; 
   x := x + 1
@@ -24,8 +23,7 @@ tsa !
   x < 10
 .
 
-try_complex_expr try tce.
-tce !
+complex_expr !
   y = 0,
   z = 2 
 ;
@@ -36,8 +34,7 @@ tce !
 .
 
 
-try_functions try fun.
-fun !
+functions !
   x = 0
 ;
   x := levy_flight(x, -100, 100)

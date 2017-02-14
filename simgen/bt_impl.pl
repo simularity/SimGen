@@ -182,10 +182,7 @@ start_simulation(StartTime, TimeUnit, TickLength, External) :-
 	new_clock(simgen, StartTime),
 	empty_queues,
 	broadcast(simulation_starting),
-	(   do_ticks(External)
-	;   bt_debug(error(simulation, simulation_failed),
-		  'simulation failed', [])
-	),
+	do_ticks(External),
 	!.  % make it steadfast
 
 %!	end_simulation is det
@@ -251,21 +248,30 @@ empty_queues.
 do_ticks(_External) :-
 	end_simulation_message_exists.
 do_ticks(External) :-
-	get_clock(simgen, Time),
+	det(get_clock(simgen, Time)),
 	% this is for external prolog
 	ignore(broadcast_request(tick(External, Time, NewExtern))),
 	% this is *from* external prolog
-	empty_simgen_queue,
-	cycle_values,
-	do_tick_start,
-	empty_u_queue,
-	valuator,
-	do_tick_end,
-	empty_u_queue,
-	broadcast_values,
-	update_clocks,
-	show_debug,
+	det(empty_simgen_queue),
+	det(cycle_values),
+	det(do_tick_start),
+	det(empty_u_queue),
+	det(valuator),
+	det(do_tick_end),
+	det(empty_u_queue),
+	det(broadcast_values),
+	det(update_clocks),
+	det(show_debug),
 	do_ticks(NewExtern).
+do_ticks(_) :-
+        bt_debug(error(simulation, simulation_failed),
+		  'simulation failed', []),
+	gtrace.
+
+det(Goal) :-
+	(   call(Goal)
+	;   gtrace
+	).
 
 empty_simgen_queue :-
 	thread_get_message(simgen, new_clock(Name, Start), [timeout(0)]),

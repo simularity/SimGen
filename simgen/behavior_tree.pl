@@ -37,7 +37,8 @@ use_bt(Path) :-
 	define_bt(List) = Result,
 	collect_anons(List, WithAnons), % [':-'(def_node(H,O,A,C))]
 	!,
-	call_all(WithAnons).
+	call_all(WithAnons),
+	check_nodes. % this will need to be removed to handle multiple bt files
 
 call_all([]).
 call_all([Unbound | Tail]) :-

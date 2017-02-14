@@ -162,10 +162,10 @@ prob(Prob, Child) -->
 	ws,
 	":",
 	ws,
-	an_atom(Child).
+	a_child(Child).
 prob(1.0, Child) -->
 	ws,
-	an_atom(Child),
+	a_child(Child),
 	ws.
 
 continuous_calc_list([Stmt | Rest]) -->
@@ -333,11 +333,11 @@ atom_codes([]) --> [].
 
 nonempty_child_list([Child | MoreChildren]) -->
 	ws,
-	an_atom(Child),
+	a_child(Child),
 	ws,
 	",",
 	nonempty_child_list(MoreChildren).
-nonempty_child_list([Child]) --> ws, an_atom(Child).
+nonempty_child_list([Child]) --> ws, a_child(Child).
 
 
 a_child(Child) -->
