@@ -1,34 +1,27 @@
-coffee_sim =>
-  user,
-  coffee_maker
+coffee_sim ->
+  { reset on },
+  { =>
+     user,
+     coffee_maker
+  }
 .
-
 
 /*         The User             */
 user ->
-  turn_on,
-  wait_for_coffee,
+  {dur 10},
+  {set on},
+  {wait coffee_ready},
   drink
 .
 
-turn_on ->
-  wait_some,
-  switch_on
-.
- 
-wait_some dur 10.
- 
-switch_on set on
-.
-
-wait_for_coffee wait coffee_ready
+drink dur 10
 .
 
 /*     The pot            */
 
 coffee_maker ->
   maker_off,
-  user_turns_on,
+  {wait on},  % wait til the user turns it on
   heat_water,
   boil,
   caraffe_heater,
