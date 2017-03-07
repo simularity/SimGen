@@ -64,7 +64,7 @@ tick_end(C-N) :-
 	first_tick_done(C-N),
 	!,
 	bt_impl:node_(_, N, '!', [_, _, Conds], _),
-	(   conds(C, Conds)
+	(   conds(C-N, Conds)
 	->  true
 	;   stop_me(C-N, fail)
 	).

@@ -14,7 +14,7 @@ license:license(simularity, proprietary,
 :- use_module(library(dcg/basics)).
 :- use_module(simgen(print_system)).
 
-d(Format, Args) --> {bt_debug(bt(parser, info), Format, Args)}, [].
+d(Format, Args) --> {bt_debug(bt(parser, info), Format, Args)}, !, [].
 
 bt_dcg(define_bt([':-'(true)])) --> eos.
 bt_dcg(define_bt([':-'(set_current_bt_module) | BT])) -->
@@ -48,8 +48,11 @@ bt_error -->
 				     context(err(AC:Line:Pos:File))))
 	}.
 
-ws --> blanks.
-ws --> blanks, comment, ws.
+ws --> ws_,!.
+ws_ --> eos.
+ws_ --> blanks, comment, ws_.
+ws_ --> blanks.
+
 % allow prolog style comments
 comment -->
 	"%",
@@ -320,13 +323,14 @@ function( clock, 0).
 
 an_atom(Atom) -->
 	[X],
-	{ code_type(X, lower) },
+	{ ground(X), code_type(X, lower) },
 	atom_codes(Codes),
 	{ atom_codes(Atom, [X | Codes]) }.
 
 atom_codes([X | Rest]) -->
 	[X],
-	{ code_type(X, csym) },
+	{ ground(X),
+          code_type(X, csym) },
 	atom_codes(Rest).
 atom_codes([]) --> [].
 
