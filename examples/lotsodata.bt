@@ -1,0 +1,14 @@
+root ->  
+   lf.
+
+lf !
+   p = 100,
+   t = 20
+;
+   p := levy_flight(p, 0, 200),
+   t := wander(t, 0, 200, 3)
+;
+   p < 5000
+.
+
+

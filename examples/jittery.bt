@@ -1,0 +1,26 @@
+root =>  
+   lf,
+   jitter
+.
+
+lf !
+   p = 100,
+   t = 20
+;
+   p := levy_flight(p, 0, 200),
+   t := wander(t, 0, 200, 3)
+;
+   p < 5000
+.
+
+jitter !
+   a = 100,
+   b = 100,
+   c = 100
+;
+   c := levy_flight(c, 0, 200),
+   b := levy_flight(c + b, 0, 200),
+   a := wander(a, 0, 200, 3)
+;
+   a < 5000
+.

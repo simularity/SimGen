@@ -1,4 +1,4 @@
-:- module(bt_example, [test/2, test/3]).
+:- module(bt_example_jitter, [test/2, test/3]).
 /** <module> Example that runs the test simulation
 
 
@@ -9,7 +9,7 @@ path_target.
 % fix it so it points at your simgen directory
 %
 :-
-	source_file(bt_example:path_target, Path),
+	source_file(bt_example_jitter:path_target, Path),
 	directory_file_path(Dir, _, Path),
 	absolute_file_name(Dir, AbsPath),
 	atomic_list_concat(
@@ -82,7 +82,7 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 	Extern.add_context_on_tick =< Tick,
 	succ(NN, Extern.next_context),
 %	random_between(1, 20, R),
-R = 300,
+R = 1500,
 	NewTick is R + Tick,
 	NewExtern  = extern{
 			 next_context: NN,
@@ -125,8 +125,14 @@ R = 300,
 :- listen(pin_drop(Context, Time, -event),
        write_event(text, Time, Context, pin_drop, '-event')).
 
+:- use_module(library(clpfd)).
+
 write_event(Class, Time, Context, Type, Value) :-
-	Nanos is Time * 60_000_000_000,
+	(   Time in 100..500 \/ 577 \/ 600..622 \/ 1125 \/ 1800,
+	    member(Type, [b,c])
+	->  Nanos is Time * 60_000_000_000 + random(1_000_000)
+	;   Nanos is Time * 60_000_000_000
+	),
 	b_getval(test_stream, Stream),
 	format(Stream, 'unit,~d,~d,~w,~w,~w~n',
 	       [Context, Nanos, Class, Type, Value]),
