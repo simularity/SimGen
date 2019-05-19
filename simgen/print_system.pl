@@ -34,6 +34,8 @@ bt_debug(Sig, Format, Args) :-
 	Sig \= error(_, _),
 	debug(Sig, Format, Args).
 
+:- ensure_loaded(library(debug)).
+
 :- multifile
 	system:goal_expansion/2.
 
