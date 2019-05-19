@@ -1,6 +1,9 @@
 :- module(bt_example, [test/2, test/3]).
 /** <module> Example that runs the test simulation
 
+?- test(root, 'examples/hwclient', 3).
+
+produces file tests.simai
 
  */
 
