@@ -1,5 +1,5 @@
 coffee_sim ->
-  { reset on },
+  { clear on },
   { =>
      user,
      coffee_maker
@@ -11,9 +11,9 @@ user ->
   {dur 10},
   fill_coffee_maker,
   {set on},
-  {wait coffee_ready},
+  {-? coffee_ready},
   pour_cup,
-  {reset on}
+  {clear on},
   drink
 .
 
@@ -36,32 +36,31 @@ fill_coffee_maker !
 
 coffee_maker =>
   filter_basket,
-  boiler,
-  cup
+  boiler    % TODO cup
 .
-
+  
 /* The filter basket.
 repeatedly filters water into coffee as long as there's
 water. (we're not simulating the grounds being depleted) */
 
-filter_basket <->
+filter_basket <>
   { !
  ;
-   wfilter := wfilter - 4
+   wfilter := wfilter - 4,
    ccup := ccup + 4
  ;
    wfilter > 0
   }
 .
 
-/* the boiler heats water as long as there's water and it's on
+/* the boiler heats water as long as there's water and it's on */
 
-boiler <->
+boiler <>
 { ->
-  {wait on},  % wait til the user turns it on
+  {-? on},  % wait til the user turns it on
   heat_water,
-  boil,
-} }
+  boil
+}
 .
  
 /* caraffe heater - we're not modeling it for the moment */

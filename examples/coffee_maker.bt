@@ -26,6 +26,6 @@ wait_for_coffee wait coffee_ready
 drink set drink
 .
 
-
+coffee_ready dur 10.
 
 

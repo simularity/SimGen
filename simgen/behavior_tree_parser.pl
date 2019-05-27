@@ -25,7 +25,7 @@ bt_([BTStatement | BT]) -->
     d('in bt_', []),
     ws,
     bt_statement(BTStatement),
-    d('got statement', [BTStatement]),
+    d('got statement ~w', [BTStatement]),
     ws,
     bt_(BT).
 bt_([]) --> ws, eos,!.
@@ -97,7 +97,10 @@ bt_statement(':-'(def_node(Head, Operator, Args, Children))) -->
 	ws,
 	".".
 
+
+head(boiler) --> an_atom(boiler),{gtrace}.
 head(Head) --> an_atom(Head).
+
 
 bt_operator( ~? ) --> "~?".     % random selector
 bt_operator( '!' ) --> "!".     % pdq
