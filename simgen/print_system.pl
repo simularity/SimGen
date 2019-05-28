@@ -9,6 +9,8 @@
  *
  */
 
+:- use_module(simgen(bt_impl), [named_parent_of/2]).
+
 bt_debug(Sig) :-
 	debug(Sig).
 
@@ -60,6 +62,15 @@ prolog:message(error(syntax_error(AC), context(err(AC:Line:Pos:File)))) -->
 	 nl,
 	 AC,
 	 nl].
+prolog:message(error(existance_error(procedure, Node), context(node:Head, Msg))) -->
+	{ findall(Parent, named_parent_of(Parent, Head), RawParents),
+	  sort(RawParents, Parents)},
+	[ 'BT File Error: ',
+	  'Node ~w is used in ~w but is not defined'-[Node, Parents],
+	  nl,
+	  Msg,
+	  nl].
+
 
 
 % TODO consider using term expansion on this at some point to remove the

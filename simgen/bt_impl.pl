@@ -11,7 +11,8 @@
 %	      bt_context_time/2, % get the time of the context clock
 	      check_nodes/0, % check_nodes
 	      make_cn/2,
-	      emit/1
+	      emit/1,
+	      named_parent_of/2
 	 ]).
 /** <module> run time support for bt
  *
@@ -159,6 +160,24 @@ print_no_def(Node, Head) :-
 	format(atom(Msg), 'Node ~w is used in node ~w but is not defined', [Node, Head]),
 	bt_print_message(error, error(existance_error(procedure, Node),
 					      context(node:Head, Msg))).
+
+%!	named_parent_of(-Parent:atom, +A:atom) is nondet
+%
+%   @arg Parent one of the closest enclosing parents not named nodeDDDD
+%   @arg A is the descendent
+%
+named_parent_of(Head, A) :-
+	atom(A),
+	node_(_Module, Head, _Operator, _Args, Children),
+	memberchk(A, Children),
+	\+ atom_concat(node, _, Head).
+named_parent_of(Ancestor, A) :-
+	atom(A),
+	node_(_Module, Head, _Operator, _Args, Children),
+	memberchk(A, Children),
+	atom_concat(node, _, Head),
+	named_parent_of(Ancestor, Head).
+
 
 		 /*******************************
 		 *          User API            *

@@ -33,6 +33,7 @@ use_bt(Path) :-
 	list_all_nodes,
 	absolute_file_name(Path, File),
 	atom_concat(File, '.bt', AbsPath),
+	b_setval(bt_file_path, AbsPath),
 	phrase_from_file(behavior_tree_syntax:bt_dcg(Result), AbsPath, []),
 	define_bt(List) = Result,
 	collect_anons(List, WithAnons), % [':-'(def_node(H,O,A,C))]

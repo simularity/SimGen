@@ -40,10 +40,8 @@ bt_([BT]) -->
 bt_error -->
 	string(OopsCodes),
 	(   "." ; eos),
+        lazy_list_location(file(File, Line, Pos, _)),
 	{ atom_codes(AC, OopsCodes),
-	  line_count(current_input, Line),
-	  line_position(current_input, Pos),
-	  source_file(File),
 	  bt_print_message(error, error(syntax_error(AC),
 				     context(err(AC:Line:Pos:File))))
 	}.
@@ -97,8 +95,6 @@ bt_statement(':-'(def_node(Head, Operator, Args, Children))) -->
 	ws,
 	".".
 
-
-head(boiler) --> an_atom(boiler),{gtrace}.
 head(Head) --> an_atom(Head).
 
 
