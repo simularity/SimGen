@@ -1,0 +1,514 @@
+I gave an impromptu tutorial one evening on IRC. 
+Until we get proper docs, this will have to do.
+
+
+
+rday 1 June 2019] [4:21:07 PM PDT] <anniepoo> ok
+[Saturday 1 June 2019] [4:21:16 PM PDT] <anniepoo> so, you have simgen d/led?
+[Saturday 1 June 2019] [4:21:20 PM PDT] <aindilis> yes
+[Saturday 1 June 2019] [4:21:31 PM PDT] <anniepoo> you might want to pull, I just added some definitions to the readme 15 mins ago
+[Saturday 1 June 2019] [4:21:53 PM PDT] <anniepoo> nico, you too, and anybody else feel free to join in
+[Saturday 1 June 2019] [4:21:55 PM PDT] <aindilis> kk
+[Saturday 1 June 2019] [4:22:30 PM PDT] <anniepoo> and open the tutorial.odp slides in the docs dir
+[Saturday 1 June 2019] [4:22:56 PM PDT] <nicoabie> I was curious to know what is it about, is it something like simpy?
+[Saturday 1 June 2019] [4:23:10 PM PDT] <nicoabie> https://simpy.readthedocs.io/en/latest/
+[Saturday 1 June 2019] [4:24:37 PM PDT] <anniepoo> nico, I don't know simpy
+[Saturday 1 June 2019] [4:24:45 PM PDT] <nicoabie> me neither haha
+[Saturday 1 June 2019] [4:25:10 PM PDT] Join conan (~conan@mdproctor.plus.com) has joined this channel.
+[Saturday 1 June 2019] [4:25:16 PM PDT] <aindilis> okay I'm ready
+[Saturday 1 June 2019] [4:25:22 PM PDT] <nicoabie> but I had a course at the university about simulation of events, to model something like queues at a bank 
+[Saturday 1 June 2019] [4:25:41 PM PDT] <anniepoo> looks like it's something vaguely similar
+[Saturday 1 June 2019] [4:26:02 PM PDT] <anniepoo> So, the basic idea of simgen is that humans talk about systems in terms of 'behaviors'
+[Saturday 1 June 2019] [4:26:19 PM PDT] <nicoabie> oh now there is a readme!!!
+[Saturday 1 June 2019] [4:26:32 PM PDT] <anniepoo> things happen in parallel, or in sequence, or we try various things til one succeeds
+[Saturday 1 June 2019] [4:26:39 PM PDT] <anniepoo> yeah, I've been cleaning up a little
+[Saturday 1 June 2019] [4:26:48 PM PDT] <nicoabie> nice, nice!
+[Saturday 1 June 2019] [4:27:07 PM PDT] <anniepoo> 8cD it also now prints the proper lines for error messages, which makes debugging BT MUCH saner
+[Saturday 1 June 2019] [4:27:16 PM PDT] <anniepoo> it's still rough, but coming along
+[Saturday 1 June 2019] [4:27:23 PM PDT] Join Prokhor (~user@46.22.18.136) has joined this channel.
+[Saturday 1 June 2019] [4:27:34 PM PDT] <Prokhor> hi
+[Saturday 1 June 2019] [4:27:41 PM PDT] <aindilis> hi
+[Saturday 1 June 2019] [4:27:53 PM PDT] <aindilis> 2019-06-01 19:26:02 <anniepoo> So, the basic idea of simgen is that humans
+[Saturday 1 June 2019] [4:27:54 PM PDT] <aindilis> talk about systems in terms of 'behaviors'
+[Saturday 1 June 2019] [4:27:54 PM PDT] <aindilis> 
+[Saturday 1 June 2019] [4:27:59 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [4:28:00 PM PDT] <aindilis> <anniepoo> things happen in parallel, or in sequence, or we try various things til one succeeds
+[Saturday 1 June 2019] [4:28:05 PM PDT] <anniepoo> hey Prokhor
+[Saturday 1 June 2019] [4:28:43 PM PDT] <anniepoo> so, SimGen is a library you run from SWI-Prolog (it'll be a pack when I get to it)
+[Saturday 1 June 2019] [4:29:23 PM PDT] <anniepoo> you start a 'simulation' with a .bt file that defines a world - so if your world has a coffee maker, it defines how coffee makers work
+[Saturday 1 June 2019] [4:29:34 PM PDT] <aindilis> Prokhor: https://github.com/simularity/SimGen
+[Saturday 1 June 2019] [4:29:41 PM PDT] <anniepoo> then you start a context - which is a single coffee maker
+[Saturday 1 June 2019] [4:29:45 PM PDT] <Prokhor> thx
+[Saturday 1 June 2019] [4:29:48 PM PDT] <aindilis> then docs/tutorial.odp
+[Saturday 1 June 2019] [4:29:50 PM PDT] <anniepoo> (you give it a number)
+[Saturday 1 June 2019] [4:30:15 PM PDT] <anniepoo> yeah Prokhor, if you want to follow along, I need 3 mins to decarpal, you can set up and I'll resume in 3 mins
+[Saturday 1 June 2019] [4:30:47 PM PDT] <Prokhor> kk.
+[Saturday 1 June 2019] [4:31:17 PM PDT] <Prokhor> will probably go though it in detail another time (tight scedule tonight)
+[Saturday 1 June 2019] [4:31:34 PM PDT] <Prokhor> will keep lurking though..
+[Saturday 1 June 2019] [4:33:20 PM PDT] <anniepoo> ok, back
+[Saturday 1 June 2019] [4:34:11 PM PDT] <anniepoo> So, if you have a simulation where people enter at various times, and all have the same rules for behavior
+[Saturday 1 June 2019] [4:34:41 PM PDT] <anniepoo> maybe you fire off contexts for various people during the execution, or commonly you just fire all the contexts at the start
+[Saturday 1 June 2019] [4:35:07 PM PDT] <anniepoo> So, behaviors are built up of nodes -
+[Saturday 1 June 2019] [4:35:26 PM PDT] <anniepoo> a node is a primitive behavior, like 'do things in sequence'
+[Saturday 1 June 2019] [4:35:36 PM PDT] <anniepoo> 'try things til something works'
+[Saturday 1 June 2019] [4:36:01 PM PDT] <anniepoo> 'behave according to a partial diff. equation (PDQ)'
+[Saturday 1 June 2019] [4:36:40 PM PDT] <anniepoo> so, you start a context with the name of a node - and that makes a context-node pair
+[Saturday 1 June 2019] [4:36:46 PM PDT] <anniepoo> or C-N pair
+[Saturday 1 June 2019] [4:36:58 PM PDT] <anniepoo> this usually will fire off child C-N pairs
+[Saturday 1 June 2019] [4:37:34 PM PDT] <anniepoo> eventually the root C-N pair will end, and that kills the context
+[Saturday 1 June 2019] [4:37:54 PM PDT] <anniepoo> everybody with me so far?
+[Saturday 1 June 2019] [4:38:48 PM PDT] <nicoabie> yes
+[Saturday 1 June 2019] [4:38:52 PM PDT] <anniepoo> 8cD
+[Saturday 1 June 2019] [4:39:13 PM PDT] <anniepoo> ok, so, the simulation proceeds in 'ticks' - it advances in time.
+[Saturday 1 June 2019] [4:40:09 PM PDT] <anniepoo> so, check out slide 8
+[Saturday 1 June 2019] [4:40:22 PM PDT] <anniepoo> Prolog fires off a single C-N pair
+[Saturday 1 June 2019] [4:41:02 PM PDT] <nicoabie> create_context just creates one and stops?
+[Saturday 1 June 2019] [4:41:03 PM PDT] <anniepoo> (you could say 'fires off a node in a context', but C-N is lots shorter and gets said a lot)
+[Saturday 1 June 2019] [4:41:24 PM PDT] <anniepoo> yes, it just creates one and returns
+[Saturday 1 June 2019] [4:41:42 PM PDT] <anniepoo> when you call start_simulation you get a new thread that acutally runs the simulation
+[Saturday 1 June 2019] [4:42:07 PM PDT] <anniepoo> so you could make some C-N pairs and then fire the simulation off, then make some more C-N
+[Saturday 1 June 2019] [4:42:09 PM PDT] <nicoabie> ok, so first you need to model everything and then start
+[Saturday 1 June 2019] [4:42:31 PM PDT] <anniepoo> you model the rules of the world (a coffee maker works like this) in a .bt file
+[Saturday 1 June 2019] [4:42:45 PM PDT] <anniepoo> when you start the simulation you load the .bt file
+[Saturday 1 June 2019] [4:43:28 PM PDT] <anniepoo> prolog gets event messages as the simulation runs, so it can influence the simulation
+[Saturday 1 June 2019] [4:43:33 PM PDT] <aindilis> so context is the trigger and node is the behavior description?
+[Saturday 1 June 2019] [4:43:48 PM PDT] <anniepoo> context is the name of an individual
+[Saturday 1 June 2019] [4:43:58 PM PDT] <aindilis> an agent?
+[Saturday 1 June 2019] [4:44:00 PM PDT] <anniepoo> if I have 4 coffee makers I have to give them names
+[Saturday 1 June 2019] [4:44:12 PM PDT] <anniepoo> yes, you can say it's an agent
+[Saturday 1 June 2019] [4:44:48 PM PDT] <anniepoo> though if you have a robot and a bread making machine and a bread slicer you
+[Saturday 1 June 2019] [4:44:54 PM PDT] <anniepoo> more likely just have 1 context
+[Saturday 1 June 2019] [4:45:44 PM PDT] <nicoabie> that I did not understand
+[Saturday 1 June 2019] [4:45:47 PM PDT] <anniepoo> and your root node will be 'do the robot, the bread oven, and the bread slicer in parallel'
+[Saturday 1 June 2019] [4:46:28 PM PDT] <anniepoo> but if you have 8 bakeries that all have the same machines, you 'd run 8 contexts
+[Saturday 1 June 2019] [4:46:44 PM PDT] <nicoabie> got it
+[Saturday 1 June 2019] [4:46:49 PM PDT] <anniepoo> most interactions are within a context
+[Saturday 1 June 2019] [4:47:27 PM PDT] <anniepoo> ok, so, a node is something like 'do in parallel'
+[Saturday 1 June 2019] [4:47:39 PM PDT] <anniepoo> and then has a list of children to do
+[Saturday 1 June 2019] [4:48:31 PM PDT] <nicoabie> so root node is a context which has three children that will run in parallel
+[Saturday 1 June 2019] [4:49:22 PM PDT] <anniepoo> nodes are the static definition (like class), C-N pairs are like instance, and the context is a container for all 
+[Saturday 1 June 2019] [4:49:30 PM PDT] <anniepoo> the C-N pairs with the same context
+[Saturday 1 June 2019] [4:50:54 PM PDT] <nicoabie> C-N stands for context-node relationship?
+[Saturday 1 June 2019] [4:51:04 PM PDT] <anniepoo> context-node pair
+[Saturday 1 June 2019] [4:51:22 PM PDT] <anniepoo> but yeah, it's the instantiation of a node for a context
+[Saturday 1 June 2019] [4:51:27 PM PDT] <aindilis> is there the ability to execute children in random order?
+[Saturday 1 June 2019] [4:51:31 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [4:51:49 PM PDT] <nicoabie> yes, there are 3 ways
+[Saturday 1 June 2019] [4:51:56 PM PDT] <nicoabie> I went further on the slides
+[Saturday 1 June 2019] [4:51:58 PM PDT] <nicoabie> :)
+[Saturday 1 June 2019] [4:52:21 PM PDT] <anniepoo> ~? operator
+[Saturday 1 June 2019] [4:52:30 PM PDT] <anniepoo> selects one of the children at random
+[Saturday 1 June 2019] [4:52:51 PM PDT] <nicoabie> isn't it ~> ?
+[Saturday 1 June 2019] [4:53:11 PM PDT] <anniepoo> ~> scrambles the order
+[Saturday 1 June 2019] [4:53:13 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [4:53:56 PM PDT] <anniepoo> suppose I want an NPC barkeep to give out all the needed clues, but don't want it to be
+[Saturday 1 June 2019] [4:54:05 PM PDT] <anniepoo> mechanical sounding - I could do ~>
+[Saturday 1 June 2019] [4:54:28 PM PDT] <anniepoo> it'd do all it's children in some random order
+[Saturday 1 June 2019] [4:55:00 PM PDT] <nicoabie> yeah
+[Saturday 1 June 2019] [4:55:12 PM PDT] <anniepoo> if I want it to just make a random "hey, we don't get many clerics in here" or whatever sttement
+[Saturday 1 June 2019] [4:55:19 PM PDT] <anniepoo> I use ~?
+[Saturday 1 June 2019] [4:55:27 PM PDT] <Prokhor> are you able to create new "bakeries" on the fly? (or have all be specified at start?)
+[Saturday 1 June 2019] [4:55:40 PM PDT] <anniepoo> yes, you can make new bakeries on the fly
+[Saturday 1 June 2019] [4:55:49 PM PDT] <anniepoo> you just call create_context from prolog
+[Saturday 1 June 2019] [4:55:58 PM PDT] Join iqubic (~user@2601:602:9900:28bf:99ef:314c:3c67:b9a4) has joined this channel.
+[Saturday 1 June 2019] [4:56:58 PM PDT] <anniepoo> ok, going to talk about C-N pair life cycle
+[Saturday 1 June 2019] [4:57:06 PM PDT] <anniepoo> slide 9
+[Saturday 1 June 2019] [4:57:31 PM PDT] <anniepoo> the root node starts a couple of children
+[Saturday 1 June 2019] [4:58:06 PM PDT] <nicoabie> have to step out but will read this afterwards, have fun!
+[Saturday 1 June 2019] [4:58:08 PM PDT] <anniepoo> C-N 1-a starts a couple of children of it's own, 1-c and 1-d
+[Saturday 1 June 2019] [4:58:12 PM PDT] <anniepoo> kk!
+[Saturday 1 June 2019] [4:58:14 PM PDT] <iqubic> What are we taling about here?
+[Saturday 1 June 2019] [4:58:20 PM PDT] <anniepoo> hey iqubic
+[Saturday 1 June 2019] [4:58:26 PM PDT] <iqubic> I missed the start of this.
+[Saturday 1 June 2019] [4:58:38 PM PDT] <iqubic> Is there a slideshow you are discussing?
+[Saturday 1 June 2019] [4:58:47 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [4:58:52 PM PDT] <iqubic> Where is that?
+[Saturday 1 June 2019] [4:58:56 PM PDT] <anniepoo> somebody have the link?
+[Saturday 1 June 2019] [4:58:58 PM PDT] Quit conan (~conan@mdproctor.plus.com) has left this server (Quit: Computer has gone to sleep.).
+[Saturday 1 June 2019] [4:59:18 PM PDT] <aindilis> https://github.com/simularity/SimGen/blob/master/docs/tutorial.odp
+[Saturday 1 June 2019] [4:59:23 PM PDT] <anniepoo> yeah
+[Saturday 1 June 2019] [4:59:36 PM PDT] <anniepoo> that file;s the libre office slides
+[Saturday 1 June 2019] [5:00:14 PM PDT] <iqubic> I have the right tool to open that.
+[Saturday 1 June 2019] [5:00:22 PM PDT] <anniepoo> ok, cool
+[Saturday 1 June 2019] [5:00:23 PM PDT] <iqubic> Continue with the lesson.
+[Saturday 1 June 2019] [5:00:42 PM PDT] <iqubic> Slide 9 is where we're at, yes?
+[Saturday 1 June 2019] [5:00:47 PM PDT] <anniepoo> ok, so, slide 12, C-N 1-d fails
+[Saturday 1 June 2019] [5:00:58 PM PDT] <anniepoo> yeah, we're just advancing through 10,11,12
+[Saturday 1 June 2019] [5:01:04 PM PDT] Join conan (~conan@mdproctor.plus.com) has joined this channel.
+[Saturday 1 June 2019] [5:01:11 PM PDT] <anniepoo> (this part of show is kind of an animation)
+[Saturday 1 June 2019] [5:01:25 PM PDT] <anniepoo> in 12, 1-d fails
+[Saturday 1 June 2019] [5:01:34 PM PDT] <anniepoo> nodes end in one of 3 ways
+[Saturday 1 June 2019] [5:01:45 PM PDT] <anniepoo> 1. they fail - somehow they can't do what they're supposed to
+[Saturday 1 June 2019] [5:02:07 PM PDT] Quit johnjay (~pi@38.120.10.99) has left this server (Ping timeout: 246 seconds).
+[Saturday 1 June 2019] [5:02:16 PM PDT] <anniepoo> (eg the NPC is supposed to shoot at the player, but can no longer see the player)
+[Saturday 1 June 2019] [5:02:37 PM PDT] <anniepoo> 2. they succeed and are 'done'
+[Saturday 1 June 2019] [5:02:54 PM PDT] <anniepoo> 3. their parent can 'terminate' them - 
+[Saturday 1 June 2019] [5:03:20 PM PDT] <anniepoo> an example would be a simulation of a car. If the parent node turns the key off, the water pump stops, etc.
+[Saturday 1 June 2019] [5:04:00 PM PDT] <anniepoo> so, 1-d has failed
+[Saturday 1 June 2019] [5:04:37 PM PDT] <anniepoo> in slide 13, that trigggers 1-a to decide it's done
+[Saturday 1 June 2019] [5:05:31 PM PDT] <anniepoo> so in slide 14, 1-d terminates, because it's parent is no longer running
+[Saturday 1 June 2019] [5:05:48 PM PDT] <anniepoo> (so c-n's are only running when their parents are)
+[Saturday 1 June 2019] [5:06:03 PM PDT] <anniepoo> (but the reverse isn't necc. true)
+[Saturday 1 June 2019] [5:07:02 PM PDT] <anniepoo> in 15 and 16, the remaining child node 1-b succeeds, and then the root succeeds
+[Saturday 1 June 2019] [5:07:21 PM PDT] <anniepoo> this make sense to people?
+[Saturday 1 June 2019] [5:07:26 PM PDT] <aindilis> yes
+[Saturday 1 June 2019] [5:07:37 PM PDT] <iqubic> I'm understanding it.
+[Saturday 1 June 2019] [5:07:52 PM PDT] <anniepoo> now, it's a weakness that sometimes in real life you can't just stop something you're doing - 
+[Saturday 1 June 2019] [5:08:16 PM PDT] <anniepoo> the nuclear reactor, or you get on the bus, then get a call and realize you need to go back home
+[Saturday 1 June 2019] [5:08:26 PM PDT] <anniepoo> but that's just how it is.
+[Saturday 1 June 2019] [5:08:46 PM PDT] <anniepoo> don't quit your node until everything's really wrapped up
+[Saturday 1 June 2019] [5:09:02 PM PDT] <anniepoo> ok, that's pretty much life of C-N pairs
+[Saturday 1 June 2019] [5:09:16 PM PDT] <anniepoo> when the context has no active nodes it's disposed
+[Saturday 1 June 2019] [5:09:47 PM PDT] <anniepoo> iqubic, you following?
+[Saturday 1 June 2019] [5:09:59 PM PDT] <iqubic> yes.
+[Saturday 1 June 2019] [5:10:05 PM PDT] <anniepoo> 8cD happy happy
+[Saturday 1 June 2019] [5:10:53 PM PDT] <anniepoo> ok, slide 18 - the nodes are defined in a .bt file - and while by tradition it's called a behavior 'tree'
+[Saturday 1 June 2019] [5:11:02 PM PDT] <anniepoo> it's actually a directed acyclic graph
+[Saturday 1 June 2019] [5:11:27 PM PDT] <anniepoo> like there might be several reasons to start some behavior - the guard starts active patrolling
+[Saturday 1 June 2019] [5:11:40 PM PDT] <anniepoo> because he hears the player, or just randomly sometimes
+[Saturday 1 June 2019] [5:12:17 PM PDT] <anniepoo> and slide 19, if a C-N pair is already acgtive, there's no restart
+[Saturday 1 June 2019] [5:12:44 PM PDT] <anniepoo> so if the guard hears the player, and is wandering around, maybe he first has to play some 
+[Saturday 1 June 2019] [5:12:50 PM PDT] <anniepoo> 'get out of chair' animation
+[Saturday 1 June 2019] [5:13:14 PM PDT] <anniepoo> and we don't want that to happen if he's already patrolling
+[Saturday 1 June 2019] [5:14:01 PM PDT] <aindilis> so how does a node trigger on a condition like 'guard hears the player'
+[Saturday 1 June 2019] [5:14:25 PM PDT] <anniepoo> there's a node type to check for a condition
+[Saturday 1 June 2019] [5:14:47 PM PDT] <anniepoo> (at the moment external conditions aren't implemented, but it's simple to do, it'll appear soon)
+[Saturday 1 June 2019] [5:15:02 PM PDT] <anniepoo> nvm - they are in there
+[Saturday 1 June 2019] [5:15:15 PM PDT] <aindilis> kk
+[Saturday 1 June 2019] [5:15:20 PM PDT] <aindilis> everything sounds good
+[Saturday 1 June 2019] [5:15:25 PM PDT] <aindilis> this may even speed up my WOPR project
+[Saturday 1 June 2019] [5:15:50 PM PDT] <anniepoo> yeah, hmm... ok, they aren't in there - but it's easy to do, it'll happen quick
+[Saturday 1 June 2019] [5:16:17 PM PDT] <anniepoo> probably in the form of being able to fire off an additional node for a context - 
+[Saturday 1 June 2019] [5:16:26 PM PDT] <anniepoo> which in turn would set a condition variable
+[Saturday 1 June 2019] [5:16:43 PM PDT] <aindilis> external as in from Prolog?
+[Saturday 1 June 2019] [5:16:46 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [5:16:58 PM PDT] <anniepoo> I'll talk about how you interact with Prolog at end
+[Saturday 1 June 2019] [5:17:07 PM PDT] <anniepoo> i'm following the slides order
+[Saturday 1 June 2019] [5:17:20 PM PDT] <anniepoo> ok, slide 22
+[Saturday 1 June 2019] [5:17:35 PM PDT] <anniepoo> a bt file is just a sequence of nodes (and comments)
+[Saturday 1 June 2019] [5:18:04 PM PDT] <anniepoo> a node is an atom name, an operator, and then some syntax that depends on the node
+[Saturday 1 June 2019] [5:18:10 PM PDT] <anniepoo> type, ending with a period
+[Saturday 1 June 2019] [5:18:46 PM PDT] <anniepoo> So, the first node is sort of the 'action' node- 
+[Saturday 1 June 2019] [5:19:00 PM PDT] <iqubic> Why does the bt syntax look similar to prolog syntax.
+[Saturday 1 June 2019] [5:19:02 PM PDT] <anniepoo> a PDQ, or partial differential equation node
+[Saturday 1 June 2019] [5:19:18 PM PDT] <anniepoo> because it was a proprietary project in a prolog shop?
+[Saturday 1 June 2019] [5:19:29 PM PDT] <iqubic> How do PDQ nodes work?
+[Saturday 1 June 2019] [5:19:43 PM PDT] <anniepoo> ok, so a pdq node (slide 23)
+[Saturday 1 June 2019] [5:20:26 PM PDT] <anniepoo> just defines a for loop, basically - you set up some variables, each tick you change them
+[Saturday 1 June 2019] [5:20:54 PM PDT] <anniepoo> and at some point the condition fails
+[Saturday 1 June 2019] [5:21:13 PM PDT] <anniepoo> eventually I'll have this implemented so you don't actually have to step through ticks
+[Saturday 1 June 2019] [5:21:18 PM PDT] <anniepoo> for now that's all it's doing
+[Saturday 1 June 2019] [5:21:23 PM PDT] <iqubic> Are you the one making this?
+[Saturday 1 June 2019] [5:21:25 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [5:21:40 PM PDT] <anniepoo> I made this for Simularity, Inc., at that time my employer
+[Saturday 1 June 2019] [5:21:48 PM PDT] <anniepoo> they recently OS'ed it
+[Saturday 1 June 2019] [5:22:07 PM PDT] <anniepoo> so I can now maintain it and let the world use it
+[Saturday 1 June 2019] [5:22:31 PM PDT] <iqubic> Cool stuff.
+[Saturday 1 June 2019] [5:22:44 PM PDT] <anniepoo> slide 24 is no longer accurate - now every operator in prolog's is/2 is supported
+[Saturday 1 June 2019] [5:23:12 PM PDT] <iqubic> What are the other operators listed on that slide?
+[Saturday 1 June 2019] [5:23:48 PM PDT] <anniepoo> levy_flight is a type of noise with 'jumps'. wander moves in a way that keeps between two bounds
+[Saturday 1 June 2019] [5:24:19 PM PDT] <anniepoo> so 'drunkards walk' is 'wander', but levy_flight would be a rough first approximation of music
+[Saturday 1 June 2019] [5:24:36 PM PDT] <iqubic> Awesome.
+[Saturday 1 June 2019] [5:24:37 PM PDT] <anniepoo> the original application of SimGen was to make fake data. 
+[Saturday 1 June 2019] [5:24:48 PM PDT] <anniepoo> we'll be adding more noises
+[Saturday 1 June 2019] [5:24:53 PM PDT] <iqubic> Which those two functions seem really good at doing.
+[Saturday 1 June 2019] [5:25:10 PM PDT] <anniepoo> yes, Simularity is an anomalometry shop.
+[Saturday 1 June 2019] [5:25:16 PM PDT] <anniepoo> Noise is their business
+[Saturday 1 June 2019] [5:25:51 PM PDT] <iqubic> I think you mean anomemetry.
+[Saturday 1 June 2019] [5:25:55 PM PDT] <anniepoo> they do ML-ish stuff that attempts to understand what's 'ordinary' noise and what's 'take it to the mecahnica' noise
+[Saturday 1 June 2019] [5:26:05 PM PDT] <anniepoo> mechanic
+[Saturday 1 June 2019] [5:26:11 PM PDT] <iqubic> But that's a nitpick right now.
+[Saturday 1 June 2019] [5:26:30 PM PDT] <anniepoo> no, I mean anomalometry
+[Saturday 1 June 2019] [5:26:51 PM PDT] <anniepoo> the measurement of anomaly
+[Saturday 1 June 2019] [5:27:07 PM PDT] <iqubic> Ah. I see.
+[Saturday 1 June 2019] [5:27:29 PM PDT] <anniepoo> ok, in pdq right now there's a thing that frankly is a failed deal.
+[Saturday 1 June 2019] [5:27:56 PM PDT] <anniepoo> I have := which computes the new value from the previous value
+[Saturday 1 June 2019] [5:28:12 PM PDT] <anniepoo> and I have = which computes the new value from the current value
+[Saturday 1 June 2019] [5:28:37 PM PDT] <iqubic> Why would you use one of those over the other?
+[Saturday 1 June 2019] [5:28:38 PM PDT] <anniepoo> which is an important distinction for removing bias
+[Saturday 1 June 2019] [5:29:12 PM PDT] <aindilis> what about stochastic diffeq?
+[Saturday 1 June 2019] [5:29:16 PM PDT] <anniepoo> if I'm simulating a bouncing ball, I get diff behavior if I update height based on velocity last time or new velocity
+[Saturday 1 June 2019] [5:29:38 PM PDT] <anniepoo> yeah, this whole thing is honestly a bit of a mess, we think it has lots of potential
+[Saturday 1 June 2019] [5:30:03 PM PDT] <anniepoo> (the PDQ node) but a rewrite involves eliminating the whole loop thing
+[Saturday 1 June 2019] [5:30:12 PM PDT] <anniepoo> so you just express a differential equation
+[Saturday 1 June 2019] [5:30:18 PM PDT] <aindilis> ah
+[Saturday 1 June 2019] [5:30:37 PM PDT] <iqubic> Makes sense.
+[Saturday 1 June 2019] [5:30:38 PM PDT] <anniepoo> simgen works on hybrid systems - systems that have continuous domains
+[Saturday 1 June 2019] [5:30:52 PM PDT] <anniepoo> and change in more logic-y ways at the boundaries
+[Saturday 1 June 2019] [5:30:54 PM PDT] <iqubic> Now, what about the condition part of a PDQ.
+[Saturday 1 June 2019] [5:30:59 PM PDT] <iqubic> ???
+[Saturday 1 June 2019] [5:31:48 PM PDT] <anniepoo> so, because you might not have set a condition yet, if your equation has an undefined value in it
+[Saturday 1 June 2019] [5:32:00 PM PDT] <anniepoo> it succeeds - which is weird, but works for this system
+[Saturday 1 June 2019] [5:32:32 PM PDT] <anniepoo> (it's prbably because you didn't define that value yet - eg it's dependent on the 2nd derivative and you're on the 1st tick)
+[Saturday 1 June 2019] [5:32:56 PM PDT] <anniepoo> also note the condition's at end
+[Saturday 1 June 2019] [5:33:16 PM PDT] <anniepoo> like I say - we learned a lot making it this way, but it needs a new rev
+[Saturday 1 June 2019] [5:33:25 PM PDT] <anniepoo> ok, sounds like folks with me?
+[Saturday 1 June 2019] [5:33:31 PM PDT] <aindilis> yup
+[Saturday 1 June 2019] [5:33:36 PM PDT] <Prokhor> yup
+[Saturday 1 June 2019] [5:33:49 PM PDT] <anniepoo> so, now for some other node types
+[Saturday 1 June 2019] [5:33:52 PM PDT] <iqubic> Yup
+[Saturday 1 June 2019] [5:34:13 PM PDT] <anniepoo> 27 random selector - picks one action
+[Saturday 1 June 2019] [5:34:27 PM PDT] <iqubic> I assume you can give that a list of actions?
+[Saturday 1 June 2019] [5:34:28 PM PDT] <anniepoo> typical use - have an NPC say one of several stupid thigs
+[Saturday 1 June 2019] [5:34:34 PM PDT] <iqubic> Alright.
+[Saturday 1 June 2019] [5:34:44 PM PDT] <anniepoo> yes, you give it a list of children, each with an optional weight
+[Saturday 1 June 2019] [5:35:13 PM PDT] <iqubic> If you fail to give it a weight, then it assumes the weight is 1? Which means that event will always happen?
+[Saturday 1 June 2019] [5:35:28 PM PDT] <anniepoo> no, it normalizes
+[Saturday 1 June 2019] [5:35:35 PM PDT] <iqubic> Ah. I see.
+[Saturday 1 June 2019] [5:35:42 PM PDT] <anniepoo> so if you have 4 things and no weights, each gets 0.25
+[Saturday 1 June 2019] [5:35:44 PM PDT] <Prokhor> can you assign weights on the fly?
+[Saturday 1 June 2019] [5:36:01 PM PDT] <Prokhor> like updating some markov model?
+[Saturday 1 June 2019] [5:36:09 PM PDT] <iqubic> What, like have the weight be a variable that some other node is changing?
+[Saturday 1 June 2019] [5:36:10 PM PDT] <anniepoo> like depending on a variable? that'd be a good thing to do, but not doing it right now
+[Saturday 1 June 2019] [5:36:22 PM PDT] <Prokhor> kk
+[Saturday 1 June 2019] [5:36:23 PM PDT] <anniepoo> Prokhor - file an issue if you would
+[Saturday 1 June 2019] [5:36:27 PM PDT] <anniepoo> it's a good idea
+[Saturday 1 June 2019] [5:36:29 PM PDT] <aindilis> :)
+[Saturday 1 June 2019] [5:37:05 PM PDT] <anniepoo> =? starts all of it's children
+[Saturday 1 June 2019] [5:37:22 PM PDT] <anniepoo> it ignores failures, but as soon as one succeeds, it terminates everyone and succeeds
+[Saturday 1 June 2019] [5:37:29 PM PDT] <anniepoo> if everyone fails, it fails
+[Saturday 1 June 2019] [5:38:03 PM PDT] <anniepoo> this is for modeling processes like - I'm the boss, and suddenly need a broom. I say 'somebody get me a broom'
+[Saturday 1 June 2019] [5:38:29 PM PDT] <anniepoo> and all the employees go looking for a broom. As soon as somebody brings me a broom, the others stop
+[Saturday 1 June 2019] [5:39:01 PM PDT] <anniepoo> ok, that clear? everybody with me?
+[Saturday 1 June 2019] [5:39:06 PM PDT] <iqubic> yes
+[Saturday 1 June 2019] [5:39:10 PM PDT] <aindilis> yes except I'm curious,
+[Saturday 1 June 2019] [5:39:20 PM PDT] <anniepoo> go ahead - brb, 1 min, ask q
+[Saturday 1 June 2019] [5:39:23 PM PDT] <aindilis> how does one bind different employees to the current context
+[Saturday 1 June 2019] [5:39:36 PM PDT] <aindilis> I assume they're elsewhere
+[Saturday 1 June 2019] [5:40:03 PM PDT] <aindilis> with the Context name of hte employee as the child?
+[Saturday 1 June 2019] [5:40:19 PM PDT] <iqubic> I'd assume the other employees are just different nodes.
+[Saturday 1 June 2019] [5:40:22 PM PDT] <aindilis> I assume that they can be bound to multiple parents?
+[Saturday 1 June 2019] [5:40:41 PM PDT] <iqubic> that would make sense.
+[Saturday 1 June 2019] [5:40:50 PM PDT] <aindilis> but i'm intending to discuss the scope of the binding
+[Saturday 1 June 2019] [5:41:10 PM PDT] <anniepoo> There's a node (may not be implemented yet) that lets you switch contexts
+[Saturday 1 June 2019] [5:41:24 PM PDT] <aindilis> since apparently one agent like an employee can have multiple concurrent behaviors
+[Saturday 1 June 2019] [5:41:30 PM PDT] <anniepoo> so you can fire off a C-N pair for a diff context
+[Saturday 1 June 2019] [5:41:54 PM PDT] <aindilis> so you iterate over all contexts, switching and simulating?
+[Saturday 1 June 2019] [5:42:00 PM PDT] <aindilis> one step
+[Saturday 1 June 2019] [5:42:21 PM PDT] <anniepoo> you'd have to know the context #'s for other employees (as implemented now) 
+[Saturday 1 June 2019] [5:42:39 PM PDT] <aindilis> okay, and that can be initiated by prolog at runtime?
+[Saturday 1 June 2019] [5:42:47 PM PDT] <anniepoo> more likely you'd just have one context, the bar, and 3 employees modelled separately
+[Saturday 1 June 2019] [5:43:13 PM PDT] <aindilis> kk
+[Saturday 1 June 2019] [5:43:24 PM PDT] <anniepoo> since it's a dag, if they're the same, you could just make them all point at some 'employee' node
+[Saturday 1 June 2019] [5:43:43 PM PDT] <aindilis> k
+[Saturday 1 June 2019] [5:43:52 PM PDT] <anniepoo> root => boss, bar, emp1, emp2, emp3.
+[Saturday 1 June 2019] [5:45:37 PM PDT] <anniepoo> I know this seems a bit weird, but it's been surprisingly not much of a problem
+[Saturday 1 June 2019] [5:45:49 PM PDT] <anniepoo> but context != agent
+[Saturday 1 June 2019] [5:46:02 PM PDT] <aindilis> k
+[Saturday 1 June 2019] [5:46:10 PM PDT] <anniepoo> context = similar situation
+[Saturday 1 June 2019] [5:46:29 PM PDT] <anniepoo> (the original use case we had lots of things like 400 oil pumps)
+[Saturday 1 June 2019] [5:47:07 PM PDT] <anniepoo> and the anomalometry assumed data from one was valid for others
+[Saturday 1 June 2019] [5:47:24 PM PDT] <anniepoo> so usually you didn't want diff contexts with diff behavior
+[Saturday 1 June 2019] [5:47:51 PM PDT] <aindilis> root > pump1, pump2, ..., pump400?
+[Saturday 1 June 2019] [5:48:14 PM PDT] <anniepoo> if the pumps are identical, just make 'pump' and use contexts
+[Saturday 1 June 2019] [5:48:19 PM PDT] <aindilis> k
+[Saturday 1 June 2019] [5:48:35 PM PDT] <anniepoo> if you're modeling a saturn 5 rocket, yes, have lots of things start at once
+[Saturday 1 June 2019] [5:49:15 PM PDT] <anniepoo> we had a couple situations where I had to generate the bt file with a little hack because we had LOTS of things
+[Saturday 1 June 2019] [5:49:24 PM PDT] <anniepoo> but in practice it's not been a problem
+[Saturday 1 June 2019] [5:49:27 PM PDT] <Prokhor> can you specify other firing rules than all of a tier at once?
+[Saturday 1 June 2019] [5:49:31 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [5:49:32 PM PDT] <iqubic> So what's next?
+[Saturday 1 June 2019] [5:49:39 PM PDT] <anniepoo> ok, slide 29
+[Saturday 1 June 2019] [5:49:58 PM PDT] <anniepoo> -> a series of things one after the other
+[Saturday 1 June 2019] [5:49:58 PM PDT] <iqubic> Sequencing is fun.
+[Saturday 1 June 2019] [5:50:14 PM PDT] <anniepoo> if one fails, the whole sequence is aborted, and fails
+[Saturday 1 June 2019] [5:50:45 PM PDT] <anniepoo> ~> same, but scramble the order
+[Saturday 1 June 2019] [5:51:32 PM PDT] <anniepoo> => is parallel, but not like =?
+[Saturday 1 June 2019] [5:51:39 PM PDT] <anniepoo> =? is 'bring me a broom'
+[Saturday 1 June 2019] [5:52:06 PM PDT] <anniepoo> => is 'everybody work exercise 3, then we'll discuss as a class'
+[Saturday 1 June 2019] [5:52:24 PM PDT] <anniepoo> so we wait for everybody to figure it out
+[Saturday 1 June 2019] [5:52:33 PM PDT] <anniepoo> and if somebody can't, we have to do something else
+[Saturday 1 June 2019] [5:53:05 PM PDT] <anniepoo> (in practice, to ensure that, we might wrap the individual 'work ex 3' with 'try')
+[Saturday 1 June 2019] [5:53:37 PM PDT] <anniepoo> it waits for everyone
+[Saturday 1 June 2019] [5:53:53 PM PDT] <anniepoo> now, you can use => as a sort of conditional
+[Saturday 1 June 2019] [5:54:07 PM PDT] <iqubic> But why would you do that?
+[Saturday 1 June 2019] [5:54:19 PM PDT] <anniepoo> do what? wait?
+[Saturday 1 June 2019] [5:54:49 PM PDT] <anniepoo> suppose it's a plant, you have to start 4 auxiliary processes before you can start the main one
+[Saturday 1 June 2019] [5:55:52 PM PDT] <iqubic> why would you use => as a conditional?
+[Saturday 1 June 2019] [5:56:02 PM PDT] <anniepoo> suppose I have an NPC
+[Saturday 1 June 2019] [5:56:19 PM PDT] <anniepoo> and the NPC will become alert if it hears the user
+[Saturday 1 June 2019] [5:56:25 PM PDT] <iqubic> I have to go. Will be back later. Sorry.
+[Saturday 1 June 2019] [5:56:39 PM PDT] <anniepoo> but after1 minute it goes back to normal
+[Saturday 1 June 2019] [5:56:42 PM PDT] <anniepoo> ok, see ya
+[Saturday 1 June 2019] [5:56:57 PM PDT] <anniepoo> if you leave the window open you can get scrollback
+[Saturday 1 June 2019] [5:57:07 PM PDT] <aindilis> you know what could help is to specify these vignettes
+[Saturday 1 June 2019] [5:57:24 PM PDT] <anniepoo> ok, so, to implement the guard we do
+[Saturday 1 June 2019] [5:57:39 PM PDT] <aindilis> well I mean for the docs, have the .bt
+[Saturday 1 June 2019] [5:57:53 PM PDT] <aindilis> for your defining examples
+[Saturday 1 June 2019] [5:58:07 PM PDT] <anniepoo> guard_watch => {dur 60}, be_watchful.
+[Saturday 1 June 2019] [5:58:26 PM PDT] <anniepoo> dur 60 just runs for 60 sec after starting
+[Saturday 1 June 2019] [5:58:28 PM PDT] <iqubic> anniepoo: I'll do that.
+[Saturday 1 June 2019] [5:58:58 PM PDT] <anniepoo> yeah, good idea. I should make a 'project' tutorial that has some use for each one of these
+[Saturday 1 June 2019] [5:59:29 PM PDT] <anniepoo> there's a coffee maker that's not finished
+[Saturday 1 June 2019] [5:59:50 PM PDT] <anniepoo> one problem with this - I'm a newbie writinig bt too!
+[Saturday 1 June 2019] [6:00:07 PM PDT] <anniepoo> there are only about 500 lines of bt in existance
+[Saturday 1 June 2019] [6:01:03 PM PDT] <anniepoo> ok, one more use for =>
+[Saturday 1 June 2019] [6:01:18 PM PDT] <anniepoo> if you need to have some things only work as long as all are working
+[Saturday 1 June 2019] [6:02:15 PM PDT] <anniepoo> soldiers charging (and falling back if one does), or shutting whole plant down if a pump fails
+[Saturday 1 June 2019] [6:02:37 PM PDT] <anniepoo> ok, you still with me?
+[Saturday 1 June 2019] [6:02:46 PM PDT] <aindilis> yup
+[Saturday 1 June 2019] [6:02:49 PM PDT] <anniepoo> cool
+[Saturday 1 June 2019] [6:02:54 PM PDT] <anniepoo> I need to decarpal again
+[Saturday 1 June 2019] [6:02:56 PM PDT] <anniepoo> 3 mins
+[Saturday 1 June 2019] [6:02:58 PM PDT] <aindilis> kk
+[Saturday 1 June 2019] [6:06:32 PM PDT] <anniepoo> back
+[Saturday 1 June 2019] [6:06:51 PM PDT] <anniepoo> ok, decorators -
+[Saturday 1 June 2019] [6:07:01 PM PDT] <anniepoo> they just have a single child
+[Saturday 1 June 2019] [6:08:17 PM PDT] <anniepoo> try is the most common one - it lets you do something without a cascading failure
+[Saturday 1 June 2019] [6:08:27 PM PDT] <anniepoo> (slide 31)
+[Saturday 1 June 2019] [6:08:57 PM PDT] <anniepoo> something ongoing, you use <> to repeat
+[Saturday 1 June 2019] [6:09:24 PM PDT] <anniepoo> <--> keep trying something til it succeeds (like I'm tyring to reconnect to the database)
+[Saturday 1 June 2019] [6:09:34 PM PDT] <anniepoo> pin is a simularity specific thing
+[Saturday 1 June 2019] [6:10:04 PM PDT] <anniepoo> with me?
+[Saturday 1 June 2019] [6:10:08 PM PDT] <aindilis> yup
+[Saturday 1 June 2019] [6:10:10 PM PDT] <anniepoo> we're on 33
+[Saturday 1 June 2019] [6:10:31 PM PDT] <anniepoo> so, there are 2 mutable data types - reals ('variables')
+[Saturday 1 June 2019] [6:10:38 PM PDT] <anniepoo> and conditionals
+[Saturday 1 June 2019] [6:11:20 PM PDT] <anniepoo> ? foo succeeds immediately if foo is true
+[Saturday 1 June 2019] [6:11:33 PM PDT] <anniepoo> and ffails immediately otherwise
+[Saturday 1 June 2019] [6:11:52 PM PDT] <anniepoo> -? foo runs til foo becomes true
+[Saturday 1 June 2019] [6:12:08 PM PDT] <anniepoo> set and reset always immediately succeed, with side effect
+[Saturday 1 June 2019] [6:12:47 PM PDT] <anniepoo> slide 34 - dur <time> is in whatever units you set when you set up the simulation
+[Saturday 1 June 2019] [6:12:57 PM PDT] <anniepoo> and just succeeds after that duration
+[Saturday 1 June 2019] [6:13:33 PM PDT] <anniepoo> made a mistake earlier, 
+[Saturday 1 June 2019] [6:13:47 PM PDT] <anniepoo> guard_watch =? {dur 60}, be_watchful.
+[Saturday 1 June 2019] [6:14:10 PM PDT] <anniepoo> is correct - be_watchful never ends
+[Saturday 1 June 2019] [6:14:34 PM PDT] <anniepoo> but guard_watch has limited duration because the {dur 60} times out
+[Saturday 1 June 2019] [6:14:48 PM PDT] <aindilis> ah
+[Saturday 1 June 2019] [6:14:54 PM PDT] <anniepoo> (aside - not in slides - you can make an anonymous node with curlies)
+[Saturday 1 June 2019] [6:15:21 PM PDT] <anniepoo> dur is also useful for stubbing in parts of an unfinished simulation
+[Saturday 1 June 2019] [6:15:35 PM PDT] <anniepoo> something dur 10.
+[Saturday 1 June 2019] [6:15:42 PM PDT] <anniepoo> til you get around to writing it
+[Saturday 1 June 2019] [6:15:54 PM PDT] <aindilis> does SimGen get parsed by DCGs?
+[Saturday 1 June 2019] [6:15:59 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [6:16:02 PM PDT] <aindilis> nice
+[Saturday 1 June 2019] [6:16:09 PM PDT] <anniepoo> bt_parser
+[Saturday 1 June 2019] [6:16:27 PM PDT] <anniepoo> ok, that's the end of the bt language section
+[Saturday 1 June 2019] [6:16:30 PM PDT] <anniepoo> you happy?
+[Saturday 1 June 2019] [6:16:33 PM PDT] <Prokhor> issue filed...
+[Saturday 1 June 2019] [6:16:41 PM PDT] <anniepoo> thanks Prokhor!
+[Saturday 1 June 2019] [6:16:52 PM PDT] <anniepoo> our first OS issue 8cD
+[Saturday 1 June 2019] [6:17:40 PM PDT] <anniepoo> hearing no puzzlement, on to interacting with Prolog
+[Saturday 1 June 2019] [6:17:52 PM PDT] <aindilis> yeah it makes pretty clear sense now
+[Saturday 1 June 2019] [6:17:57 PM PDT] <anniepoo> simgen uses the library(broadcast)
+[Saturday 1 June 2019] [6:18:04 PM PDT] <aindilis> still hazy on the scoping, but I'm sure I'll get that from the .bt examples
+[Saturday 1 June 2019] [6:18:18 PM PDT] <anniepoo> there *isn't* much scoping
+[Saturday 1 June 2019] [6:18:24 PM PDT] <aindilis> k
+[Saturday 1 June 2019] [6:18:24 PM PDT] <anniepoo> all variables are global
+[Saturday 1 June 2019] [6:18:30 PM PDT] <aindilis> k
+[Saturday 1 June 2019] [6:18:44 PM PDT] <anniepoo> (they're per-context, but there's only one scope/context)
+[Saturday 1 June 2019] [6:19:22 PM PDT] <anniepoo> simgen's got some strange characteristics that give it nice properties - when we fix the pdq node
+[Saturday 1 June 2019] [6:19:34 PM PDT] <anniepoo> we might be able to reason a lot of the computation away
+[Saturday 1 June 2019] [6:20:00 PM PDT] <anniepoo> but it's like clp(fd) or something - you don't want your whole website in it
+[Saturday 1 June 2019] [6:20:52 PM PDT] <anniepoo> ok, prolog - 
+[Saturday 1 June 2019] [6:21:03 PM PDT] <anniepoo> from the simgen root dir
+[Saturday 1 June 2019] [6:21:15 PM PDT] <anniepoo> swipl bt_example.pl
+[Saturday 1 June 2019] [6:21:35 PM PDT] <anniepoo> in practice, most existing bt code just runs with this prolog file
+[Saturday 1 June 2019] [6:21:51 PM PDT] <anniepoo> which just puts out a csv with the simulation results
+[Saturday 1 June 2019] [6:23:17 PM PDT] <aindilis> I assume the anomaly detection stuff is fully proprietary
+[Saturday 1 June 2019] [6:24:06 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [6:24:16 PM PDT] <aindilis> it would be interesting to merge this with RTEC
+[Saturday 1 June 2019] [6:24:29 PM PDT] <aindilis> can you make queries as to the state at different times?
+[Saturday 1 June 2019] [6:24:32 PM PDT] <anniepoo> yes
+[Saturday 1 June 2019] [6:24:36 PM PDT] <anniepoo> you get events.
+[Saturday 1 June 2019] [6:24:54 PM PDT] <aindilis> but I mean you can't do it after the fact?
+[Saturday 1 June 2019] [6:24:57 PM PDT] <anniepoo> essentially, we alwasy did the same thing - make a bt file, then run it to make a simulation
+[Saturday 1 June 2019] [6:25:15 PM PDT] <anniepoo> you'd have to capture the state as you went.
+[Saturday 1 June 2019] [6:25:18 PM PDT] <aindilis> like when the sim is done, ask atTime([2019-06-01,21:25:09],X = true).
+[Saturday 1 June 2019] [6:25:28 PM PDT] <aindilis> okay yeah RTEC is a very natural integration then
+[Saturday 1 June 2019] [6:25:32 PM PDT] <anniepoo> yeah, just have to record data
+[Saturday 1 June 2019] [6:25:43 PM PDT] <aindilis> https://github.com/aartikis/RTEC
+[Saturday 1 June 2019] [6:25:48 PM PDT] <anniepoo> bt_example just writes all events out to a csv file
+[Saturday 1 June 2019] [6:26:16 PM PDT] <anniepoo> you can exercise with
+[Saturday 1 June 2019] [6:26:23 PM PDT] <anniepoo> swipl bt_example.pl
+[Saturday 1 June 2019] [6:26:24 PM PDT] <anniepoo> then 
+[Saturday 1 June 2019] [6:26:28 PM PDT] <anniepoo> ?- test(root, 'examples/hwclient2', 3).
+[Saturday 1 June 2019] [6:27:00 PM PDT] <anniepoo> note the .bt is omitted - probably not a good idea,
+[Saturday 1 June 2019] [6:27:34 PM PDT] <anniepoo> ok, hmm....
+[Saturday 1 June 2019] [6:27:57 PM PDT] <aindilis> (http://users.iit.demokritos.gr/~a.artikis/EC.html)
+[Saturday 1 June 2019] [6:28:10 PM PDT] <anniepoo> so, test/3 does some path setup
+[Saturday 1 June 2019] [6:28:16 PM PDT] <anniepoo> then calls start_imulation
+[Saturday 1 June 2019] [6:28:22 PM PDT] <anniepoo> simulation
+[Saturday 1 June 2019] [6:28:32 PM PDT] <anniepoo> the N argument is number of contexts to start
+[Saturday 1 June 2019] [6:29:07 PM PDT] <anniepoo> we just fire off a new context every random 1 to N ticks 
+[Saturday 1 June 2019] [6:29:22 PM PDT] <anniepoo> 1 to 20 ticks
+[Saturday 1 June 2019] [6:29:33 PM PDT] <anniepoo> til we've done N contexts (I think it's N-1)
+[Saturday 1 June 2019] [6:30:07 PM PDT] <aindilis> are ticks equidistant time wise or do they punctuate events of varying time, as in PDDL2.1?
+[Saturday 1 June 2019] [6:30:07 PM PDT] <anniepoo> the args to start_simulation are a mapping for time units, 
+[Saturday 1 June 2019] [6:30:24 PM PDT] <anniepoo> we worked with stock stuff in days, and with machine stuff in millisecs
+[Saturday 1 June 2019] [6:30:37 PM PDT] <aindilis> so 1 tick = 1 day in stock
+[Saturday 1 June 2019] [6:31:12 PM PDT] <anniepoo> and an 'extern', which is just a blob to simgen, but gets passed to each of your events so you cna have external state
+[Saturday 1 June 2019] [6:31:25 PM PDT] <anniepoo> yeah, like here 1 tick = 1 minute
+[Saturday 1 June 2019] [6:31:34 PM PDT] <aindilis> ah
+[Saturday 1 June 2019] [6:31:55 PM PDT] <anniepoo> the units (eg for dur ) are 60 trillion nanos
+[Saturday 1 June 2019] [6:31:58 PM PDT] <anniepoo> (1 minute)
+[Saturday 1 June 2019] [6:32:06 PM PDT] <anniepoo> and 1 unit is one tick
+[Saturday 1 June 2019] [6:32:39 PM PDT] <anniepoo> so, in our case we just want to know when to add a new context, so I keep track of what tick to add on on, 
+[Saturday 1 June 2019] [6:32:47 PM PDT] Join johnjay (~pi@38.120.10.99) has joined this channel.
+[Saturday 1 June 2019] [6:32:48 PM PDT] <anniepoo> and what the next context is
+[Saturday 1 June 2019] [6:32:55 PM PDT] <anniepoo> (it counts down)
+[Saturday 1 June 2019] [6:33:08 PM PDT] <anniepoo> do you know library(broadcast)?
+[Saturday 1 June 2019] [6:33:13 PM PDT] <aindilis> no
+[Saturday 1 June 2019] [6:33:18 PM PDT] <aindilis> but I was reading it's for GUI
+[Saturday 1 June 2019] [6:33:27 PM PDT] <anniepoo> it's for any sort of pub-sub
+[Saturday 1 June 2019] [6:33:31 PM PDT] <aindilis> k
+[Saturday 1 June 2019] [6:33:35 PM PDT] <aindilis> over http?
+[Saturday 1 June 2019] [6:33:36 PM PDT] <anniepoo> or more agent-y
+[Saturday 1 June 2019] [6:33:54 PM PDT] <anniepoo> there-s an extension that lets it run over multiple processes via UDP
+[Saturday 1 June 2019] [6:33:58 PM PDT] <aindilis> k
+[Saturday 1 June 2019] [6:34:03 PM PDT] <anniepoo> I use that to wire up Pomatia
+[Saturday 1 June 2019] [6:34:07 PM PDT] <aindilis> sweet
+[Saturday 1 June 2019] [6:34:13 PM PDT] <anniepoo> but this is in-process broadcast
+[Saturday 1 June 2019] [6:34:39 PM PDT] <anniepoo> you just broadcast, and anyone listening to something that unifies is fired off
+[Saturday 1 June 2019] [6:34:50 PM PDT] <aindilis> nice
+[Saturday 1 June 2019] [6:34:56 PM PDT] <anniepoo> you can also broadcast_request and get sync return of data
+[Saturday 1 June 2019] [6:35:14 PM PDT] <anniepoo> so, each tick there's a tick event
+[Saturday 1 June 2019] [6:35:54 PM PDT] <anniepoo> and you get to update the extern structure
+[Saturday 1 June 2019] [6:36:11 PM PDT] <anniepoo> like maybe something's hard to do in simgen - 
+[Saturday 1 June 2019] [6:36:21 PM PDT] <anniepoo> we had an application wheere we needed to put in real data
+[Saturday 1 June 2019] [6:36:47 PM PDT] <anniepoo> so I did that in the tick event
+[Saturday 1 June 2019] [6:37:20 PM PDT] <anniepoo> so the tick event just either makes a new context or ends the simulation or does nothing
+[Saturday 1 June 2019] [6:37:55 PM PDT] <anniepoo> (note that at the moment it's acutally just adding a context every 300 ticks)
+[Saturday 1 June 2019] [6:38:31 PM PDT] <anniepoo> reading events update readings
+[Saturday 1 June 2019] [6:38:53 PM PDT] <anniepoo> (and btw, at the moment that's how you change variables - you just emit your own event)
+[Saturday 1 June 2019] [6:38:59 PM PDT] <anniepoo> (i think)
+[Saturday 1 June 2019] [6:39:26 PM PDT] <anniepoo> and then you get events when nodes start and stop
+[Saturday 1 June 2019] [6:39:50 PM PDT] <anniepoo> and we only record when they stop because they're done, or stop because they failed
+[Saturday 1 June 2019] [6:40:04 PM PDT] <anniepoo> because usually terminated isn't interesting
+[Saturday 1 June 2019] [6:40:21 PM PDT] <anniepoo> the pin_drop events are generated by the pin node
+[Saturday 1 June 2019] [6:40:42 PM PDT] <anniepoo> they're just a special format start/stop
+[Saturday 1 June 2019] [6:40:52 PM PDT] <anniepoo> so simularity specific thing
+[Saturday 1 June 2019] [6:41:38 PM PDT] <anniepoo> you can do whatever you want as far as listening and interacting with the simulation
+[Saturday 1 June 2019] [6:42:07 PM PDT] <anniepoo> bt_example was sort of our cheat sheet starter for making simulations
+[Saturday 1 June 2019] [6:42:17 PM PDT] <Prokhor> where can i find full BT spec & tutorial?
+[Saturday 1 June 2019] [6:42:19 PM PDT] <anniepoo> that's pretty much simgen
+[Saturday 1 June 2019] [6:42:21 PM PDT] <anniepoo> LOL
+[Saturday 1 June 2019] [6:42:34 PM PDT] <aindilis> awesome, thanks anniepoo for the wonderful tutorial
+[Saturday 1 June 2019] [6:42:47 PM PDT] <anniepoo> Prokhor, the tutorial is now available as the scrollback in this channel
+[Saturday 1 June 2019] [6:42:48 PM PDT] <Prokhor> thx :)
+[Saturday 1 June 2019] [6:42:59 PM PDT] <aindilis> this is definitely a great asset for SWIPL
+[Saturday 1 June 2019] [6:43:03 PM PDT] <anniepoo> it was an internal tool - they had some docs, I didn't get them with the repo
+[Saturday 1 June 2019] [6:43:30 PM PDT] <anniepoo> I'm probably going to put this scrollback in as a document
+[Saturday 1 June 2019] [6:43:37 PM PDT] <aindilis> k
+[Saturday 1 June 2019] [6:43:39 PM PDT] <anniepoo> until I can make better docs
+[Saturday 1 June 2019] [6:44:08 PM PDT] <anniepoo> yeah, proprietary code is always kinda hacky.
+[Saturday 1 June 2019] [6:44:17 PM PDT] <aindilis> it's not bad honestly
+[Saturday 1 June 2019] [6:44:25 PM PDT] <anniepoo> 8cD thanks
+[Saturday 1 June 2019] [6:44:28 PM PDT] <aindilis> I like all the operators
+[Saturday 1 June 2019] [6:44:48 PM PDT] <Prokhor> scrollback? (sry, not proficient in IRC)
+[Saturday 1 June 2019] [6:45:05 PM PDT] <anniepoo> I have trouble remembering them - if we have a big 'flag day' I'll change them to words
+[Saturday 1 June 2019] [6:45:09 PM PDT] <aindilis> yeah the recent history of the chanenl
+[Saturday 1 June 2019] [6:45:15 PM PDT] <anniepoo> scrollback = log of this channel
+[Saturday 1 June 2019] [6:45:22 PM PDT] <aindilis> what is a flag day?
+[Saturday 1 June 2019] [6:45:44 PM PDT] <anniepoo> a day whhen an api changes in a backwards incompatible manner
+[Saturday 1 June 2019] [6:45:55 PM PDT] <aindilis> that's oddly specific lol
+[Saturday 1 June 2019] [6:46:21 PM PDT] <aindilis> oh I get it, like a revolution
+[Saturday 1 June 2019] [6:46:45 PM PDT] <anniepoo> the 'flag' originally was a 1 bit flag warning you that you were using version 2
+[Saturday 1 June 2019] [6:46:51 PM PDT] <aindilis> ah
+[Saturday 1 June 2019] [6:47:12 PM PDT] <aindilis> well thanks again, I think I'm going to prototype some stuff in it pretty soon. I've been working on something kinda related
+[Saturday 1 June 2019] [6:47:18 PM PDT] <anniepoo> cool
+[Saturday 1 June 2019] [6:47:32 PM PDT] <anniepoo> it's obviously rough
+[Saturday 1 June 2019] [6:47:42 PM PDT] <anniepoo> we used it to get work done
+[Saturday 1 June 2019] [6:47:50 PM PDT] <anniepoo> and kind of hacked at is as needed
+[Saturday 1 June 2019] [6:48:10 PM PDT] <anniepoo> but it's a useful system.
+[Saturday 1 June 2019] [6:48:23 PM PDT] <anniepoo> you can build stuff really fast in it when it's appropriate
