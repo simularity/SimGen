@@ -173,26 +173,43 @@ A BT file is a sequence of nodes, and comments.
 A BT file consists of a number
 ## The Operators
 
+
 `~?`  [child | float ":" child]+  randomly select one child. The probabillity that
                                 a child is selected is proportional to it's weight.
                                 the default weight is 1.0
-`!` partial differential equation - see PDQ section for syntax
+
+`!`              partial differential equation - see PDQ section for syntax
+
 `?`   condition     Check guard - checks the condition every tick. If the condition is false,
               it fails. If true, it succeeds
+
 `-?`  condition     Wait guard - waits until the condition is true and succeeds
+
 `set` condition    makes the condition true
+
 `clear` condition  makes the condition false
+
 `->` child+        do a sequence of things. If one fails, the following are not done, and the node fails. 
+
 `~>` child+        randomly order the children, and then execute as ->
+
 `=>` child+        run at same time in parallel. if any fail, fail. if they all succeed, succeed.
                  Guard that a condition stays true. enforce coordinated action.
+
 `=?` child+        run at same time in parallel. if any fail, fail. if any succeed, succeed.
+
 `try` child        run the child and succeed whether the child succeeds or fails
+
 `fail`             just fail
+
 `not` child        fail when child succeeds, succeed if child fails
+
 `dur` number       wait this number of user time units, then succeed
+
 `pin` child        emit a Simularity specific pair of 'pin' events
+
 `<>`  child        loop - run the child repeatedly until it fails
+
 `<-->` child       retry loop - run the child repeatedly until it succeeds
 
 # Getting and Setting Values
