@@ -222,6 +222,7 @@ start_context(Root, Context, Time) :-
 	% nonexistant clock
 	thread_send_message(simgen, start_node(Context-Root)).
 
+
 		 /*******************************
 		 * Support for User API         *
 		 *******************************/
