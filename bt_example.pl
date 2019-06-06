@@ -134,4 +134,3 @@ write_event(Class, Time, Context, Type, Value) :-
 	format(Stream, 'unit,~d,~d,~w,~w,~w~n',
 	       [Context, Nanos, Class, Type, Value]),
 	flush_output(Stream).
-

@@ -65,6 +65,8 @@ When you shut off a car, a lot of things stop moving - the fuel pump stops pumpi
 
 SimGen keeps the running nodes a **forest** by terminating all running children under a parent when the parent stops.
 
+What happens when a second source tries to start a node that's already running? Nothing. There is _no restart_ in SimGen.
+
 ## Variables and Conditions
 
 SimGen provides _variables_, which are floats, and _conditions_, which are booleans. 
@@ -103,6 +105,48 @@ Into the simulation you add contexts with `start_context/3`.
 
 Call `end_simulation/0` to end the simulation.
 
+
+## Prolog Interaction
+  
+SimGen depends heavily on `library(broadcast)`. Much interaction is by registering _listeners_ using `library(broadcast)`.
+
+Messages of form `tick(Extern, Tick, NewExtern)` occur each tick. 
+
+When the simulation is started, an Extern value is passed. This is external state available for Prolog.
+
+When a tick occurs, the tick listener binds the new value of Extern to NewExtern.
+
+When a node starts, a message `starting(Context-Name)` is emitted.
+
+When a node stops, a message `stopped(Context-Name, Reason)` is emitted.
+
+Reason is one of
+
+ * `done`     the node completed successfully
+ * `fail`     the node failed
+ * `terminated`  the node was terminated by a higher node
+
+When the `pin` node is used, `pin_drop(Context, Time, event)` and `pin_drop(Context, Time, '-event')` events are broadcast.
+
+Whenever a value is changed, `reading(Time, Module, Context, Name, Value)` events are emitted.
+
+See `getval/2` and `setval/3` in module `valuator` to read/change values from Prolog.
+
+See `set_guard/2`, `clear_guard/2`, and `guard/2` in module `guard_manager` to read/change conditions from prolog.
+
+A useful idiom
+
+````
+wait_for_prolog =>
+   {clear my_condition},
+   {-? my_condition}.
+
+... in prolog code ....
+set_guard(Context, my_condition)
+````
+
+TODO make a more elegant call node type
+
 ## Time  
 
 SimGen advances in _ticks_.
@@ -117,13 +161,10 @@ The simulation runs in discrete _ticks_, and we can choose the length of a tick.
 
 Each context also gets a clock, which starts at zero when the context starts.
 
-## Prolog Interaction
-  
-TODO
 
 ## Making Contexts Interact
 
-
+This isn't working yet. Next day or two I get to work on SimGen it goes in.
 
 ## Choosing what to simulate
 
@@ -145,7 +186,7 @@ TODO update
 A **context** - Often it's useful to have more than one 'copy' of a thing - A simulation of people might
 have a bunch of people modelled with identical code. The external Prolog program starts a single behavior (node) with a context.
 
-A **C-N Pair** - During a simulation a context may be executing any number of nodes, and there may be any number of contexts. A **C-N Pair** is a single node being run by a single context. Nodes are definitional. C-N pairs are dynamic objects.
+A **C-N Pair** - Context-node pair. internal name for an active node
 
 A **node** - a fundamental unit of behavior - do things in sequence. Do them in parallel. Try things until one succeeds. We're migrating away from describing nodes to talking of behaviors and sub-behaviors.
  
@@ -161,17 +202,39 @@ A **simulation** - a collection of interacting systems that can be run forward i
 
 A BT file is a sequence of nodes, and comments.
 
-### Comments
-
 ````
 % from percent sign to end of line is a comment
 /* multi-line C style comments are supported */
 ````
 
-### Overall
+Nodes have the format 
 
-A BT file consists of a number
-## The Operators
+````
+<head> <operator>
+      <type dependent child info>
+      .
+````
+
+<head> is an atom, the name of the node.
+
+Anywere a _child_ can occur, an _anonymous node_ can be substituted. 
+
+````
+{ <operator> <type dependent child info> }
+````
+
+This example waits 10 seconds and then does something. It's clearer to inline the
+`{ dur 10 }` than to have a `wait_ten_seconds` node.
+
+````
+do_something_after_delay ->
+    { dur 10 },
+    do_something.
+````
+
+
+## The Node Types
+
 
 
 `~?`  [child | float ":" child]+  randomly select one child. The probabillity that
@@ -181,7 +244,7 @@ A BT file consists of a number
 `!`              partial differential equation - see PDQ section for syntax
 
 `?`   condition     Check guard - checks the condition every tick. If the condition is false,
-              it fails. If true, it succeeds
+                    it fails. If true, it succeeds
 
 `-?`  condition     Wait guard - waits until the condition is true and succeeds
 
@@ -212,12 +275,42 @@ A BT file consists of a number
 
 `<-->` child       retry loop - run the child repeatedly until it succeeds
 
-# Getting and Setting Values
+## PDQ nodes
 
-See `getval/2` and `setval/3` in module `valuator`.
+The `!` node is a Partial Differential Equation(PDQ) node.
 
-See `set_guard/2`, `clear_guard/2`, and `guard/2` in module `guard_manager` 
+````
+action_node !
+    x = 0
+;
+    x := x + 1
+;
+    x < 10
+.
+````
 
+The first section is evaluated on the first tick.  The second section is evaluated on subsequent ticks. The final section is evaluated **after** the first or second section, and if false the node fails. Hence PDQ nodes always
+eventually fail.
+
+The operator `:=` does assignment based on the previous tick's values. The operator `=` is reactive, evaluating when all operands are available, using this tick's values. The user is responsible for assuring that all operands are available.
+
+This odd setup makes writing bias-free PDQ code easier.
+
+All operators available to the SWI-Prolog `is/2` predicate are available.
+
+Also available are a few additional functions. And some operators have been moved to prevent operator clashes with simgen operators.
+
+ * `levy_flight(Prev, Lo, Hi)` which performs a Levy Flight between its low and high values.
+ * `wander(Prev, Lo, Hi, Dist) randomly wanders a uniform 0-Dist on each step, the probabibility of 
+   wandering up or down depending on the current value (so when Prev=Lo we are guaranteed a wander up)
+ * `clock()` returns the current context clock
+ * `pow(Old, Exp)` - exponential
+ * `lshift(Old, Bits)` - left shift
+ * `rshift(Old, Bits)` - right shift
+ * `bitor(A, B)` - bitwise OR
+ * `bitand(A, B)` - bitwise AND
+
+TODO - Add the ability to call Prolog from expressions.
 
 
 

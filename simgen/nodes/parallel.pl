@@ -76,3 +76,5 @@ terminate(C-N) :-
 	retractall(running(C-N, _)),
 	emit(stopped(C-N, terminated)).
 
+
+
