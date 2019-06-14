@@ -63,7 +63,7 @@ A node is started, runs, and then stops in one of 3 ways:
 
 When you shut off a car, a lot of things stop moving - the fuel pump stops pumping, the radio stops playing, the crankshaft stops rotating... Stopping the 'run car' action terminates all these lesser actions.
 
-SimGen keeps the running nodes in a **forest** by terminating all running children under a parent when the parent stops.
+SimGen keeps the running nodes a **forest** by terminating all running children under a parent when the parent stops.
 
 What happens when a second source tries to start a node that's already running? Nothing. There is _no restart_ in SimGen.
 
@@ -178,7 +178,7 @@ TODO
 
 TODO update
 
-**behavior** - We humans talk about systems in terms of their behavior. Servers start, stop, handle requests, generate 404 errors, call the database, etc. Shoppers check online, then check a store, perhaps learn from a clerk that they actually want something else, then realize they have to buy something else...  **BT** describes the world in terms of a set of fundamental behaviors.
+**behavior** - We humans talk about systems in terms of their behavior. Servers start, stop, handle requests, generate 404 errors, call the database, etc. Shoppers check online, then check a store, perhaps learn from a clerk that they actually want something else, realize they have the something else...  **BT** describes the world in terms of a set of fundamental behaviors.
 
 **BT** - the language SimGen programs are defined in. Stored in files ending .bt
 
