@@ -65,7 +65,7 @@ When you shut off a car, a lot of things stop moving - the fuel pump stops pumpi
 
 SimGen keeps the running nodes a **forest** by terminating all running children under a parent when the parent stops.
 
-What happens when a second source tries to start a node that's already running? Nothing. There is _no restart_ in SimGen.
+What happens when a second source tries to start a node that's already running? Nothing. There is _no restart_ in SimGen. When A node ends, all parents are notified. However, only the parent that actually spawned the node will terminate the node when it dies. Note that this can 'hang' a second parent. Generally, multi-parenting is a minefield. It's a good rule to only multiparent if you're confident only one will actually try to instantiate the node. 
 
 ## Variables and Conditions
 
