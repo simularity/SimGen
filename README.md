@@ -73,7 +73,7 @@ SimGen provides _variables_, which are floats, and _conditions_, which are boole
 
 SimGen variables and conditions need not be declared. All are **per context** scope.
 
-In the future we want to move SimGen towards making all variables 'understand' partial differential equations, so that most PDQ nodes don't need to explicitly be simulated.
+In the future we want to move SimGen towards making all variables 'understand' partial differential equations, known as PDQ nodes, so that most PDQ nodes don't need to explicitly be simulated.
 
 ## Contexts
 
@@ -108,19 +108,19 @@ Call `end_simulation/0` to end the simulation.
 
 ## Prolog Interaction
   
-SimGen depends heavily on `library(broadcast)`. Much interaction is by registering _listeners_ using `library(broadcast)`.
+SimGen depends heavily on `library(broadcast)`. Much of the interaction that occurs in SimGen is facilitated by registering _listeners_ using `library(broadcast)`.
 
-Messages of form `tick(Extern, Tick, NewExtern)` occur each tick. 
+Messages of the form `tick(Extern, Tick, NewExtern)` occur each tick. 
 
 When the simulation is started, an Extern value is passed. This is external state available for Prolog.
 
 When a tick occurs, the tick listener binds the new value of Extern to NewExtern.
 
-When a node starts, a message `starting(Context-Name)` is emitted.
+When a node starts, a `starting(Context-Name)` message is emitted.
 
-When a node stops, a message `stopped(Context-Name, Reason)` is emitted.
+When a node stops, a `stopped(Context-Name, Reason)` message is emitted.
 
-Reason is one of
+`Reason` will have one of the following values:
 
  * `done`     the node completed successfully
  * `fail`     the node failed
@@ -168,7 +168,7 @@ This isn't working yet. Next day or two I get to work on SimGen it goes in.
 
 ## Choosing what to simulate
 
-When making a simulation, it's just as important what you leave out as what you include. 
+When making a simulation, what you leave out is just as important as what you include. 
 
 ## Some Use Cases
 
@@ -178,8 +178,7 @@ TODO
 
 TODO update
 
-**behavior** - We humans talk about systems in terms of their behavior. Servers start, stop, handle requests,
-404, call the database. Shoppers check online, then check a store, perhaps learn from a clerk that they actually want something else, realize they have the something else...  **BT** describes the world in terms of a set of fundamental behaviors.
+**behavior** - We humans talk about systems in terms of their behavior. Servers start, stop, handle requests, generate 404 errors, call the database, etc. Shoppers check online, then check a store, perhaps learn from a clerk that they actually want something else, realize they have the something else...  **BT** describes the world in terms of a set of fundamental behaviors.
 
 **BT** - the language SimGen programs are defined in. Stored in files ending .bt
 
@@ -224,7 +223,7 @@ Anywere a _child_ can occur, an _anonymous node_ can be substituted.
 ````
 
 This example waits 10 seconds and then does something. It's clearer to inline the
-`{ dur 10 }` than to have a `wait_ten_seconds` node.
+`{ dur 10 }` statement than to have a `wait_ten_seconds` node.
 
 ````
 do_something_after_delay ->
@@ -289,8 +288,7 @@ action_node !
 .
 ````
 
-The first section is evaluated on the first tick.  The second section is evaluated on subsequent ticks. The final section is evaluated **after** the first or second section, and if false the node fails. Hence PDQ nodes always
-eventually fail.
+The first section is evaluated on the first tick.  The second section is evaluated on subsequent ticks. The final section is evaluated **after** the first or second section, and if false the node fails. Hence PDQ nodes always eventually fail.
 
 The operator `:=` does assignment based on the previous tick's values. The operator `=` is reactive, evaluating when all operands are available, using this tick's values. The user is responsible for assuring that all operands are available.
 
