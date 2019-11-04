@@ -84,11 +84,12 @@ test_levy_flight !
 
 try_test_wander try test_wander.
 test_wander !
+xb = 0
 ;
  xb := wander(xb, -100, 100, 5)
 ;
- xb > -50,
- xb < 50
+ xb > -80,
+ xb < 80
 .
 
 try_test_subtract_negate try test_subtract_negate.

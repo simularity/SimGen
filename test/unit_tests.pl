@@ -1,6 +1,10 @@
 :- module(unit_tests, [integration_tests/0]).
 /** <module> run unit tests
+ query
 
+----
+    ?- integration_tests.
+----
 
  */
 
@@ -92,7 +96,7 @@ consider_adding_context(Extern, Tick, NewExtern) :-
 	Extern.add_context_on_tick =< Tick,
 	succ(NN, Extern.next_context),
 %	random_between(1, 20, R),
-R = 30,
+R = 100,
 	NewTick is R + Tick,
 	NewExtern  = extern{
 			 next_context: NN,
