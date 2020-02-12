@@ -17,7 +17,7 @@ reset :-
 bt_impl:make_cn_impl( '-?' , C-N, _-_) :-
 	running(C-N), % TODO should this be evil?
 	!.
-bt_impl:make_cn_impl( '?' , C-N, CParent-NParent) :-
+bt_impl:make_cn_impl( '-?' , C-N, CParent-NParent) :-
 	\+ running(C-N),
 	bt_impl:node_(_, N, '-?', [GuardName], _),
 	\+ guard(C, GuardName),
@@ -44,5 +44,6 @@ tick_start(C-N) :-
 	unlisten(C-N, _, _),
 	retractall(running(C-N)),
 	emit(stopped(C-N, done)).
+tick_start(_-_).
 
 

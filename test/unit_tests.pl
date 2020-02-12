@@ -21,6 +21,7 @@ path_target.
 	absolute_file_name(Dir, AbsPath),
 	atomic_list_concat(
 	    [
+
 	    AbsPath,
 	    '/../simgen'], SGP),
 	asserta(user:file_search_path(simgen, SGP)),
@@ -56,7 +57,7 @@ test(Root, N) :-
 %	extension
 %
 test(Root, File, N) :-
-	set_random(seed(42)),
+%	set_random(seed(42)),
 	use_bt(File),
 	setup_call_cleanup(
 	    open('tests.simai', write, Stream),
@@ -145,4 +146,3 @@ write_event(Class, Time, Context, Type, Value) :-
 	format(Stream, 'unit,~d,~d,~w,~w,~w~n',
 	       [Context, Nanos, Class, Type, Value]),
 	flush_output(Stream).
-
