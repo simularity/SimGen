@@ -44,5 +44,12 @@ tick_start(C-N) :-
 	unlisten(C-N, _, _),
 	retractall(running(C-N)),
 	emit(stopped(C-N, fail)).
+tick_start(_-_).
+
+
+
+
+
+
 
 
