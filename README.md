@@ -251,7 +251,9 @@ do_something_after_delay ->
 
 `clear` condition  makes the condition false
 
-`->` child+        do a sequence of things. If one fails, the following are not done, and the node fails. 
+`->` child+        do a sequence of things. If one fails, the following are not done, and the node fails.
+
+`attempt` child+   do a sequence of things, trying one after another until one succeeds.
 
 `~>` child+        randomly order the children, and then execute as ->
 
