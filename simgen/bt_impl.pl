@@ -70,6 +70,7 @@ user:file_search_path(examples, 'examples/').
 :- use_module(nodes(parallel)).
 :- use_module(nodes(paraselect)).
 :- use_module(nodes(repeat_decorator)).
+:- use_module(nodes(attempt)).
 
 		 /*******************************
 		 * Compilation support          *

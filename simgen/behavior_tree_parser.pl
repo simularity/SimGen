@@ -115,6 +115,7 @@ bt_operator( dur ) --> "dur". % duration
 bt_operator( pin ) --> "pin". % emit pin event
 bt_operator( repeat(fail) ) --> "<>". % loop until failure
 bt_operator( repeat(done) ) --> "<-->". % loop until success
+bt_operator( attempt ) --> "attempt".  % sequence until success
 
 bt_args( repeat(_), [], [Child]) --> a_child(Child).
 bt_args( pin, [], [Child]) --> a_child(Child).
@@ -124,6 +125,7 @@ bt_args( try, [], [Child]) --> a_child(Child).
 bt_args( fail, [], [Child]) --> a_child(Child).
 bt_args( not, [], [Child]) --> a_child(Child).
 bt_args( '->', [], Children) --> nonempty_child_list(Children).
+bt_args( attempt, [], Children) --> nonempty_child_list(Children).
 bt_args( '~>', [], Children) --> nonempty_child_list(Children).
 bt_args( '=>', [], Children) --> nonempty_child_list(Children).
 bt_args( '=?', [], Children) --> nonempty_child_list(Children).
