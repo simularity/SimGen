@@ -17,8 +17,8 @@ bt_impl:make_cn_impl(attempt , C-N, _-_) :-
 	!,
 	bt_debug(bt(attempt, make_cn_impl),
 		 '~w-~w already running', [C,N]).
-bt_impl:make_cn_impl('->', C-N, CParent-NParent) :-
-	bt_impl:node_(_M, N, '->', _A, [FirstChild | RestOfChildren]),
+bt_impl:make_cn_impl(attempt, C-N, CParent-NParent) :-
+	bt_impl:node_(_M, N, attempt, _A, [FirstChild | RestOfChildren]),
 	emit(starting(C-N)),
 	asserta(running(C-N, RestOfChildren)),
 	listen(C-N, terminate(C-N), attempt:terminate(C-N)),
